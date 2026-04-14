@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
-
-from config.models import BaseCNNConfig
+from omegaconf import DictConfig
 
 
 class BaseCNN(nn.Module):
-    def __init__(self, cfg: BaseCNNConfig):
+    def __init__(self, cfg: DictConfig):
         """Base CNN model for the project. It has the following architecture:
             - (Conv2d -> Activation -> (MaxPool2d)?) * N
             - Conv2d
