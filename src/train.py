@@ -17,3 +17,7 @@ def main(cfg: DictConfig) -> None:
 
     trainer = _TRAINERS[model]
     trainer(cfg)
+
+
+if __name__ == "__main__":
+    main()
