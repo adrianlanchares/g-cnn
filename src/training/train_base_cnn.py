@@ -1,8 +1,9 @@
 import torch
+from hydra.utils import instantiate
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from config import Config
 from src.data.chess import load_chess_tensor_dataset
 from src.models.base_cnn import BaseCNN
 
@@ -61,39 +62,40 @@ def evaluate(
     return total_loss / len(dataloader)
 
 
-def train(
-    cfg: Config,
+def train_base_cnn(
+    cfg: DictConfig,
 ):
     """Train the BaseCNN model on the chess dataset."""
 
-    data_cfg = cfg.data_config
-    train_cfg = cfg.train_config
+    data_config = cfg.data
+    train_config = cfg.train
+    model_config = cfg.model
 
-    print(f"Using device: {train_cfg.device}")
-    device = torch.device(train_cfg.device)
+    print(f"Using device: {train_config.device}")
+    device = torch.device(train_config.device)
 
     # Load dataset
-    dataset = load_chess_tensor_dataset(data_cfg)
-    dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True)
+    dataset = load_chess_tensor_dataset(data_config)
+    dataloader = DataLoader(dataset, batch_size=train_config.batch_size, shuffle=True)
 
     # Initialize model, loss function, and optimizer
-    model = BaseCNN(cfg.base_cnn_config).to(device)
+    model = instantiate(model_config).to(device)
 
-    if train_cfg.loss_fn == "MSELoss":
+    if train_config.loss_fn == "MSELoss":
         loss_fn = torch.nn.MSELoss()
-    elif train_cfg.loss_fn == "CrossEntropyLoss":
+    elif train_config.loss_fn == "CrossEntropyLoss":
         loss_fn = torch.nn.CrossEntropyLoss()
     else:
-        raise ValueError(f"Unsupported loss function: {train_cfg.loss_fn}")
+        raise ValueError(f"Unsupported loss function: {train_config.loss_fn}")
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
-    train_cfg.tensorboard_log_dir.mkdir(parents=True, exist_ok=True)
-    train_cfg.checkpoint_path.mkdir(parents=True, exist_ok=True)
-    writer = SummaryWriter(log_dir=str(train_cfg.tensorboard_log_dir))
+    train_config.tensorboard_log_dir.mkdir(parents=True, exist_ok=True)
+    train_config.checkpoint_path.mkdir(parents=True, exist_ok=True)
+    writer = SummaryWriter(log_dir=str(train_config.tensorboard_log_dir))
 
     # Train for a few epochs
-    for epoch in range(train_cfg.num_epochs):
+    for epoch in range(train_config.num_epochs):
         avg_train_loss = _train_one_epoch(
             model, loss_fn, optimizer, dataloader, device, epoch, writer
         )
@@ -102,18 +104,18 @@ def train(
         writer.add_scalar("eval/avg_loss", avg_eval_loss, epoch + 1)
 
         print(
-            f"Epoch {epoch + 1}/{train_cfg.num_epochs}, Average Loss: {avg_train_loss:.4f}"
+            f"Epoch {epoch + 1}/{train_config.num_epochs}, Average Loss: {avg_train_loss:.4f}"
         )
 
-        if (epoch + 1) % train_cfg.save_checkpoint_every == 0:
+        if (epoch + 1) % train_config.save_checkpoint_every == 0:
             checkpoint_path = (
-                train_cfg.checkpoint_path / f"checkpoint_epoch_{epoch + 1}.pt"
+                train_config.checkpoint_path / f"checkpoint_epoch_{epoch + 1}.pt"
             )
             torch.save(model.state_dict(), checkpoint_path)
             print(f"Saved checkpoint to {checkpoint_path}")
 
     # save final model
-    final_model_path = train_cfg.checkpoint_path / "final_model.pt"
+    final_model_path = train_config.checkpoint_path / "final_model.pt"
     torch.save(model.state_dict(), final_model_path)
     print(f"Saved final model to {final_model_path}")
 

@@ -1,0 +1,16 @@
+dataset_name: Lichess/chess-position-evaluations
+
+data_dir: ${hydra:runtime.cwd}/data/chess
+output_csv: ${data_dir}/chess_positions.csv
+output_tensor: ${data_dir}/chess_positions.pt
+
+keep_all_fens: true
+
+hash_mod: 10_000_000_000
+hash_keep_below: 1_000_000_000
+max_rows: 5_000_000
+
+clip_cp: 1000
+mate_value: 2000
+
+dedup_fen: True

@@ -1,0 +1,12 @@
+defaults:
+  - _self_
+  - problem: chess
+  - mode: base_cnn
+
+train: ${problem}/train.yaml
+data: ${problem}/data.yaml
+model: ${problem}/models.yaml#${mode}
+
+hydra:
+  run:
+    dir: ${hydra:runtime.cwd}/outputs/${problem}/${now:%Y-%m-%d}/${now:%H-%M-%S}

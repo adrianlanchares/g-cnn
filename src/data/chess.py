@@ -4,8 +4,8 @@ import os
 
 import torch
 from datasets import load_dataset
+from omegaconf import DictConfig
 
-from config.data import ChessDataConfig
 from src.data.dataset import ChessPositionEvaluationDataset
 
 
@@ -14,12 +14,12 @@ def stable_hash_int(text: str) -> int:
     return int(hashlib.sha256(text.encode("utf-8")).hexdigest(), 16)
 
 
-def keep_fen(cfg: ChessDataConfig, fen: str) -> bool:
+def keep_fen(fen: str, hash_mod: int, hash_keep_below: int) -> bool:
     """Deterministic subsampling rule."""
-    return stable_hash_int(fen) % cfg.hash_mod < cfg.hash_keep_below
+    return stable_hash_int(fen) % hash_mod < hash_keep_below
 
 
-def cp_from_row(row: dict, cfg: ChessDataConfig) -> int:
+def cp_from_row(row: dict, clip_cp: int, mate_value: int) -> int:
     """
     Convert dataset row to a single numeric evaluation target.
     - If cp exists: clip it.
@@ -30,24 +30,24 @@ def cp_from_row(row: dict, cfg: ChessDataConfig) -> int:
 
     if cp is not None:
         cp = int(cp)
-        if cp > cfg.clip_cp:
-            cp = cfg.clip_cp
-        elif cp < -cfg.clip_cp:
-            cp = -cfg.clip_cp
+        if cp > clip_cp:
+            cp = clip_cp
+        elif cp < -clip_cp:
+            cp = -clip_cp
         return cp
 
     if mate is not None:
         mate = int(mate)
         if mate > 0:
-            return cfg.mate_value
+            return mate_value
         elif mate < 0:
-            return -cfg.mate_value
+            return -mate_value
         return 0  # defensive fallback, should be rare/unexpected
 
     raise ValueError("Row has both cp=None and mate=None")
 
 
-def get_fen_eval_csv(cfg: ChessDataConfig = ChessDataConfig()):
+def get_fen_eval_csv(cfg: DictConfig):
     if os.path.isfile(cfg.output_csv):
         print(f"Output already exists at {cfg.output_csv}. Skipping download.")
         return
@@ -73,7 +73,9 @@ def get_fen_eval_csv(cfg: ChessDataConfig = ChessDataConfig()):
             processed += 1
             fen = row["fen"]
 
-            if not cfg.keep_all_fens and not keep_fen(cfg, fen):
+            if not cfg.keep_all_fens and not keep_fen(
+                fen, cfg.hash_mod, cfg.hash_keep_below
+            ):
                 continue
 
             # Optional deduplication by FEN
@@ -83,7 +85,7 @@ def get_fen_eval_csv(cfg: ChessDataConfig = ChessDataConfig()):
                 seen.add(fen)
 
             try:
-                eval_cp = cp_from_row(row, cfg)
+                eval_cp = cp_from_row(row, cfg.clip_cp, cfg.mate_value)
             except ValueError:
                 errors += 1
                 continue
@@ -152,7 +154,7 @@ def fen_to_tensor(fen: str) -> torch.Tensor:
     return tensor
 
 
-def csv_to_position_eval_tensors(csv_path) -> tuple[torch.Tensor, torch.Tensor]:
+def csv_to_position_eval_tensors(csv_path: str) -> tuple[torch.Tensor, torch.Tensor]:
     """Read FEN/eval CSV and return tensors: positions [N,12,8,8], evals [N]."""
     position_tensors = []
     evaluations = []
@@ -180,7 +182,7 @@ def csv_to_position_eval_tensors(csv_path) -> tuple[torch.Tensor, torch.Tensor]:
 
 
 def build_and_save_tensor_dataset(
-    cfg: ChessDataConfig = ChessDataConfig(),
+    cfg: DictConfig,
 ):
     """Build tensors from the exported CSV and save them to disk."""
     output_path = cfg.output_tensor_dataset
@@ -204,7 +206,7 @@ def build_and_save_tensor_dataset(
     return
 
 
-def prepare_chess_dataset(cfg: ChessDataConfig = ChessDataConfig()):
+def prepare_chess_dataset(cfg: DictConfig):
     """Full pipeline: export CSV from raw dataset, then build tensor dataset."""
     get_fen_eval_csv(cfg)
     build_and_save_tensor_dataset(cfg)
@@ -212,9 +214,7 @@ def prepare_chess_dataset(cfg: ChessDataConfig = ChessDataConfig()):
     return
 
 
-def load_chess_tensor_dataset(
-    cfg: ChessDataConfig = ChessDataConfig(),
-) -> ChessPositionEvaluationDataset:
+def load_chess_tensor_dataset(cfg: DictConfig) -> ChessPositionEvaluationDataset:
     """Load the processed tensor dataset from disk and return a PyTorch Dataset."""
     dataset_path = cfg.output_tensor_dataset
     if not os.path.isfile(dataset_path):
