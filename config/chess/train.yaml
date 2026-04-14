@@ -1,4 +1,4 @@
-device: cpu
+device: cuda
 seed: 42
 
 num_epochs: 100
