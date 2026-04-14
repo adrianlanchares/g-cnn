@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from src.config import BaseCNNConfig
+from config.models import BaseCNNConfig
 
 
 class BaseCNN(nn.Module):

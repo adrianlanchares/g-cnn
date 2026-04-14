@@ -1,14 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).parent.parent
-
-
-@dataclass
-class PathConfig:
-    project_root: Path = PROJECT_ROOT
-    data_dir: Path = PROJECT_ROOT / "data"
-
 
 ############ BASE CNN ##############################
 
@@ -77,17 +67,3 @@ class MNISTGECNNConfig(GECNNConfig):
     use_pooling: bool = True
     linear_out_features: int = 10
     group: str = "p4m"
-
-
-############### MAIN CONFIG ##############################
-
-
-@dataclass
-class Config:
-    path_config: PathConfig = PathConfig()
-
-    chess_base_cnn_config: ChessBaseCNNConfig = ChessBaseCNNConfig()
-    mnist_base_cnn_config: MNISTBaseCNNConfig = MNISTBaseCNNConfig()
-
-    chess_gecnn_config: ChessGECNNConfig = ChessGECNNConfig()
-    mnist_gecnn_config: MNISTGECNNConfig = MNISTGECNNConfig()

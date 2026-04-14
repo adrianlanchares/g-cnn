@@ -3,7 +3,7 @@ import torch.nn as nn
 from escnn import gspaces
 from escnn import nn as enn
 
-from src.config import GECNNConfig
+from config.models import GECNNConfig
 
 GSPACES = {
     "Z2": lambda: gspaces.flip2dOnR2(),  # reflection only,  group size 2
