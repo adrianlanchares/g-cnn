@@ -1,5 +1,8 @@
 services:
   chess-gecnn:
+    build: .
+    image: chess-gecnn:latest
+    container_name: chess-gecnn
     stdin_open: true
     tty: true
     deploy:
