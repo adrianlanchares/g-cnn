@@ -52,6 +52,8 @@ def get_fen_eval_csv(cfg: ChessDataConfig = ChessDataConfig()):
         print(f"Output already exists at {cfg.output_csv}. Skipping download.")
         return
 
+    cfg.output_csv.parent.mkdir(parents=True, exist_ok=True)
+
     # Streaming mode avoids downloading the whole dataset first.
     ds = load_dataset(cfg.dataset_name, split="train", streaming=True)
 
@@ -185,6 +187,8 @@ def build_and_save_tensor_dataset(
     if os.path.isfile(output_path):
         print(f"Output already exists at {output_path}. Skipping processing.")
         return
+
+    cfg.output_tensor_dataset.parent.mkdir(parents=True, exist_ok=True)
 
     positions, evaluations = csv_to_position_eval_tensors(cfg.output_csv)
 
