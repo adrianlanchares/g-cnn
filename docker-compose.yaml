@@ -1,7 +1,7 @@
 services:
-  app:
-    container_name: chess-gecnn
-    build: .
+  chess-gecnn:
+    stdin_open: true
+    tty: true
     deploy:
       resources:
         reservations:
@@ -9,6 +9,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-
     volumes:
       - .:/app
+    working_dir: /app
+    command: ["bash"]
