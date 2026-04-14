@@ -64,5 +64,8 @@ class BaseCNN(torch.nn.Module):
 
         self.layers = torch.nn.Sequential(*layers)
 
+    def _get_param_count(self) -> int:
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)
