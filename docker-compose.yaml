@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: chess-gecnn
     build: .
     deploy:
       resources:
