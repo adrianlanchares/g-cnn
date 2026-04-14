@@ -70,13 +70,14 @@ def train(
     train_cfg = cfg.train_config
 
     print(f"Using device: {train_cfg.device}")
+    device = torch.device(train_cfg.device)
 
     # Load dataset
     dataset = load_chess_tensor_dataset(data_cfg)
     dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True)
 
     # Initialize model, loss function, and optimizer
-    model = BaseCNN(cfg.base_cnn_config).to(train_cfg.device)
+    model = BaseCNN(cfg.base_cnn_config).to(device)
 
     if train_cfg.loss_fn == "MSELoss":
         loss_fn = torch.nn.MSELoss()
@@ -94,9 +95,9 @@ def train(
     # Train for a few epochs
     for epoch in range(train_cfg.num_epochs):
         avg_train_loss = _train_one_epoch(
-            model, loss_fn, optimizer, dataloader, train_cfg.device, epoch, writer
+            model, loss_fn, optimizer, dataloader, device, epoch, writer
         )
-        avg_eval_loss = evaluate(model, loss_fn, dataloader, train_cfg.device)
+        avg_eval_loss = evaluate(model, loss_fn, dataloader, device)
 
         writer.add_scalar("eval/avg_loss", avg_eval_loss, epoch + 1)
 
