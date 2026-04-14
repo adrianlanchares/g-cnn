@@ -9,5 +9,5 @@ services:
               count: all
               capabilities: [gpu]
 
-  volumes:
-    - .:/app
+    volumes:
+      - .:/app
