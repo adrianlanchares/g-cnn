@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from config.data import ChessDatasetConfig
 from config.models import (
@@ -7,20 +7,18 @@ from config.models import (
     MNISTBaseCNNConfig,
     MNISTGECNNConfig,
 )
-from config.paths import PathConfig
 
 
 @dataclass
 class Config:
-    path_config: PathConfig = PathConfig()
+    chess_base_cnn_config: ChessBaseCNNConfig = field(
+        default_factory=ChessBaseCNNConfig
+    )
+    mnist_base_cnn_config: MNISTBaseCNNConfig = field(
+        default_factory=MNISTBaseCNNConfig
+    )
 
-    chess_base_cnn_config: ChessBaseCNNConfig = ChessBaseCNNConfig()
-    mnist_base_cnn_config: MNISTBaseCNNConfig = MNISTBaseCNNConfig()
+    chess_gecnn_config: ChessGECNNConfig = field(default_factory=ChessGECNNConfig)
+    mnist_gecnn_config: MNISTGECNNConfig = field(default_factory=MNISTGECNNConfig)
 
-    chess_gecnn_config: ChessGECNNConfig = ChessGECNNConfig()
-    mnist_gecnn_config: MNISTGECNNConfig = MNISTGECNNConfig()
-
-    data_config: ChessDatasetConfig = ChessDatasetConfig()
-
-
-cfg = Config()
+    chess_data_config: ChessDatasetConfig = field(default_factory=ChessDatasetConfig)

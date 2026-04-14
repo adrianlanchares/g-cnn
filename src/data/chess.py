@@ -1,9 +1,11 @@
 import csv
 import hashlib
+import os
 
+import torch
 from datasets import load_dataset
 
-from config.data import data_cfg
+from config.data import ChessDatasetConfig
 
 
 def stable_hash_int(text: str) -> int:
@@ -11,14 +13,12 @@ def stable_hash_int(text: str) -> int:
     return int(hashlib.sha256(text.encode("utf-8")).hexdigest(), 16)
 
 
-def keep_fen(fen: str) -> bool:
+def keep_fen(cfg: ChessDatasetConfig, fen: str) -> bool:
     """Deterministic subsampling rule."""
-    return (
-        stable_hash_int(fen) % data_cfg.chess.hash_mod < data_cfg.chess.hash_keep_below
-    )
+    return stable_hash_int(fen) % cfg.hash_mod < cfg.hash_keep_below
 
 
-def cp_from_row(row: dict) -> int:
+def cp_from_row(row: dict, cfg: ChessDatasetConfig) -> int:
     """
     Convert dataset row to a single numeric evaluation target.
     - If cp exists: clip it.
@@ -29,26 +29,30 @@ def cp_from_row(row: dict) -> int:
 
     if cp is not None:
         cp = int(cp)
-        if cp > data_cfg.chess.clip_cp:
-            cp = data_cfg.chess.clip_cp
-        elif cp < -data_cfg.chess.clip_cp:
-            cp = -data_cfg.chess.clip_cp
+        if cp > cfg.clip_cp:
+            cp = cfg.clip_cp
+        elif cp < -cfg.clip_cp:
+            cp = -cfg.clip_cp
         return cp
 
     if mate is not None:
         mate = int(mate)
         if mate > 0:
-            return data_cfg.chess.mate_value
+            return cfg.mate_value
         elif mate < 0:
-            return -data_cfg.chess.mate_value
+            return -cfg.mate_value
         return 0  # defensive fallback, should be rare/unexpected
 
     raise ValueError("Row has both cp=None and mate=None")
 
 
-def get_fen_eval_csv():
+def get_fen_eval_csv(cfg: ChessDatasetConfig = ChessDatasetConfig()):
+    if os.path.isfile(cfg.output_csv):
+        print(f"Output already exists at {cfg.output_csv}. Skipping download.")
+        return
+
     # Streaming mode avoids downloading the whole dataset first.
-    ds = load_dataset(data_cfg.chess.dataset_name, split="train", streaming=True)
+    ds = load_dataset(cfg.dataset_name, split="train", streaming=True)
 
     seen = set()
     written = 0
@@ -56,7 +60,9 @@ def get_fen_eval_csv():
 
     fieldnames = ["fen", "eval_cp"]
 
-    with open(data_cfg.chess.output_csv, "w", newline="", encoding="utf-8") as f:
+    errors = 0
+
+    with open(cfg.output_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -64,19 +70,19 @@ def get_fen_eval_csv():
             processed += 1
             fen = row["fen"]
 
-            # Deterministic subset
-            if not keep_fen(fen):
+            if not cfg.keep_all_fens and not keep_fen(cfg, fen):
                 continue
 
             # Optional deduplication by FEN
-            if data_cfg.chess.dedup_fen:
+            if cfg.dedup_fen:
                 if fen in seen:
                     continue
                 seen.add(fen)
 
             try:
-                eval_cp = cp_from_row(row)
+                eval_cp = cp_from_row(row, cfg)
             except ValueError:
+                errors += 1
                 continue
 
             out = {
@@ -87,14 +93,119 @@ def get_fen_eval_csv():
             writer.writerow(out)
             written += 1
 
-            if written % 10000 == 0:
-                print(f"written={written:,} processed={processed:,}")
+            print(f"written={written:,} processed={processed:,}\t\t\t\t", end="\r")
 
-            if written >= data_cfg.chess.max_rows:
+            if written >= cfg.max_rows:
                 break
 
-    print(f"Done. Wrote {written:,} rows to {data_cfg.chess.output_csv}")
+    print(f"Done. Wrote {written:,} rows to {cfg.output_csv}, with {errors} errors.")
+    return
+
+
+def fen_to_tensor(fen: str) -> torch.Tensor:
+    """Convert a FEN board into a one-hot tensor with shape [12, 8, 8]."""
+    piece_to_channel = {
+        "P": 0,
+        "N": 1,
+        "B": 2,
+        "R": 3,
+        "Q": 4,
+        "K": 5,
+        "p": 6,
+        "n": 7,
+        "b": 8,
+        "r": 9,
+        "q": 10,
+        "k": 11,
+    }
+
+    board = fen.split(" ", 1)[0]
+    rows = board.split("/")
+    if len(rows) != 8:
+        raise ValueError(f"Invalid FEN rows: {fen}")
+
+    tensor = torch.zeros((12, 8, 8), dtype=torch.float32)
+
+    for rank, row in enumerate(rows):
+        file_idx = 0
+        for char in row:
+            if char.isdigit():
+                file_idx += int(char)
+                continue
+
+            channel = piece_to_channel.get(char)
+            if channel is None:
+                raise ValueError(f"Invalid piece '{char}' in FEN: {fen}")
+
+            if file_idx > 7:
+                raise ValueError(f"Invalid file index in FEN: {fen}")
+
+            tensor[channel, rank, file_idx] = 1.0
+            file_idx += 1
+
+        if file_idx != 8:
+            raise ValueError(f"Invalid rank width in FEN: {fen}")
+
+    return tensor
+
+
+def csv_to_position_eval_tensors(csv_path) -> tuple[torch.Tensor, torch.Tensor]:
+    """Read FEN/eval CSV and return tensors: positions [N,12,8,8], evals [N]."""
+    position_tensors = []
+    evaluations = []
+    processed = 0
+
+    with open(csv_path, "r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            fen = row["fen"]
+            eval_cp = float(row["eval_cp"])
+
+            position_tensors.append(fen_to_tensor(fen))
+            evaluations.append(eval_cp)
+            processed += 1
+
+            print(f"processed={processed:,}\t\t\t", end="\r")
+
+    if not position_tensors:
+        raise ValueError(f"No rows found in CSV: {csv_path}")
+
+    positions = torch.stack(position_tensors, dim=0)
+    evals = torch.tensor(evaluations, dtype=torch.float32)
+    print(f"Done. Processed {processed:,} rows.")
+    return positions, evals
+
+
+def build_and_save_tensor_dataset(
+    cfg: ChessDatasetConfig = ChessDatasetConfig(),
+):
+    """Build tensors from the exported CSV and save them to disk."""
+    output_path = cfg.output_tensor_dataset
+    if os.path.isfile(output_path):
+        print(f"Output already exists at {output_path}. Skipping processing.")
+        return
+
+    positions, evaluations = csv_to_position_eval_tensors(cfg.output_csv)
+
+    dataset = {
+        "positions": positions,
+        "evaluations": evaluations,
+    }
+    torch.save(dataset, output_path)
+    print(
+        f"Saved tensor dataset to {output_path} with positions shape "
+        f"{tuple(positions.shape)} and evaluations shape {tuple(evaluations.shape)}."
+    )
+    return
+
+
+def prepare_chess_dataset(cfg: ChessDatasetConfig = ChessDatasetConfig()):
+    """Full pipeline: export CSV from raw dataset, then build tensor dataset."""
+    get_fen_eval_csv(cfg)
+    build_and_save_tensor_dataset(cfg)
+
+    return
 
 
 if __name__ == "__main__":
-    get_fen_eval_csv()
+    prepare_chess_dataset()
