@@ -5,7 +5,8 @@ import os
 import torch
 from datasets import load_dataset
 
-from config.data import ChessDatasetConfig
+from config.data import ChessDataConfig
+from src.data.dataset import ChessPositionEvaluationDataset
 
 
 def stable_hash_int(text: str) -> int:
@@ -13,12 +14,12 @@ def stable_hash_int(text: str) -> int:
     return int(hashlib.sha256(text.encode("utf-8")).hexdigest(), 16)
 
 
-def keep_fen(cfg: ChessDatasetConfig, fen: str) -> bool:
+def keep_fen(cfg: ChessDataConfig, fen: str) -> bool:
     """Deterministic subsampling rule."""
     return stable_hash_int(fen) % cfg.hash_mod < cfg.hash_keep_below
 
 
-def cp_from_row(row: dict, cfg: ChessDatasetConfig) -> int:
+def cp_from_row(row: dict, cfg: ChessDataConfig) -> int:
     """
     Convert dataset row to a single numeric evaluation target.
     - If cp exists: clip it.
@@ -46,7 +47,7 @@ def cp_from_row(row: dict, cfg: ChessDatasetConfig) -> int:
     raise ValueError("Row has both cp=None and mate=None")
 
 
-def get_fen_eval_csv(cfg: ChessDatasetConfig = ChessDatasetConfig()):
+def get_fen_eval_csv(cfg: ChessDataConfig = ChessDataConfig()):
     if os.path.isfile(cfg.output_csv):
         print(f"Output already exists at {cfg.output_csv}. Skipping download.")
         return
@@ -177,7 +178,7 @@ def csv_to_position_eval_tensors(csv_path) -> tuple[torch.Tensor, torch.Tensor]:
 
 
 def build_and_save_tensor_dataset(
-    cfg: ChessDatasetConfig = ChessDatasetConfig(),
+    cfg: ChessDataConfig = ChessDataConfig(),
 ):
     """Build tensors from the exported CSV and save them to disk."""
     output_path = cfg.output_tensor_dataset
@@ -199,7 +200,7 @@ def build_and_save_tensor_dataset(
     return
 
 
-def prepare_chess_dataset(cfg: ChessDatasetConfig = ChessDatasetConfig()):
+def prepare_chess_dataset(cfg: ChessDataConfig = ChessDataConfig()):
     """Full pipeline: export CSV from raw dataset, then build tensor dataset."""
     get_fen_eval_csv(cfg)
     build_and_save_tensor_dataset(cfg)
@@ -207,5 +208,20 @@ def prepare_chess_dataset(cfg: ChessDatasetConfig = ChessDatasetConfig()):
     return
 
 
-if __name__ == "__main__":
-    prepare_chess_dataset()
+def load_chess_tensor_dataset(
+    cfg: ChessDataConfig = ChessDataConfig(),
+) -> ChessPositionEvaluationDataset:
+    """Load the processed tensor dataset from disk and return a PyTorch Dataset."""
+    dataset_path = cfg.output_tensor_dataset
+    if not os.path.isfile(dataset_path):
+        prepare_chess_dataset(cfg)
+
+    data = torch.load(dataset_path)
+    positions = data["positions"]
+    evaluations = data["evaluations"]
+
+    print(
+        f"Loaded tensor dataset from {dataset_path} with positions shape "
+        f"{tuple(positions.shape)} and evaluations shape {tuple(evaluations.shape)}."
+    )
+    return ChessPositionEvaluationDataset(positions, evaluations)

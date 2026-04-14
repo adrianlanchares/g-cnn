@@ -5,7 +5,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 
 @dataclass
-class ChessDatasetConfig:
+class ChessDataConfig:
     dataset_name: str = "Lichess/chess-position-evaluations"
 
     own_data_dir = PROJECT_ROOT / "data" / "chess"
