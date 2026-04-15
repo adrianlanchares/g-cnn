@@ -214,4 +214,6 @@ data/
 !src/data/
 models/
 !src/models/
+!config/chess/models/
+!config/mnist/models/
 logs/

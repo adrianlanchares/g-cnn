@@ -1,9 +1,13 @@
 defaults:
   - _self_
-  - train: ${problem}/train
-  - data: ${problem}/data
-  - model: ${problem}/models/base_cnn
+
+problem: chess
+mode: base_cnn
+
+train: ${problem}/train
+data: ${problem}/data
+model: ${problem}/models/${mode}
 
 hydra:
   run:
-    dir: ${hydra:runtime.cwd}/outputs/chess/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: ${hydra:runtime.cwd}/outputs/${problem}/${mode}/${now:%Y-%m-%d}/${now:%H-%M-%S}
