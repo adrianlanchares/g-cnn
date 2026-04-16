@@ -155,8 +155,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--problem",
         type=str,
-        default="base_cnn",
-        help="Problem to optimize (e.g., 'base_cnn')",
+        default="chess",
+        help="Problem to optimize (e.g., 'chess')",
     )
     parser.add_argument(
         "--mode",
@@ -197,7 +197,7 @@ def parse_args() -> argparse.Namespace:
 
 def main():
     args = parse_args()
-    output_root = OUTPUT_ROOT
+    output_root = Path(args.output_root)
 
     sampler = optuna.samplers.TPESampler(
         seed=args.seed, n_startup_trials=args.n_startup_trials

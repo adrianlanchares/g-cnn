@@ -1,17 +1,14 @@
-import torch
+import hydra
+from omegaconf import DictConfig
 
-from config.data import ChessDatasetConfig
+from src.data.chess import load_chess_tensor_dataset
 
+@hydra.main(version_base=None, config_path="../config", config_name="config")
+def main(cfg: DictConfig) -> None:
+    dataset = load_chess_tensor_dataset(cfg.data)
 
-def main():
-    cfg = ChessDatasetConfig()
-
-    dataset_path = cfg.output_tensor_dataset
-
-    data = torch.load(dataset_path, map_location="cpu")
-
-    positions = data["positions"]
-    evaluations = data["evaluations"]
+    positions = dataset.positions
+    evaluations = dataset.evaluations
 
     print(f"Positions shape: {positions.shape}")
     print(f"Evaluations shape: {evaluations.shape}")

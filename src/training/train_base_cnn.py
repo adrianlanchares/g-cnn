@@ -1,6 +1,7 @@
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
+from pathlib import Path
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -90,9 +91,12 @@ def train_base_cnn(
 
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
-    train_config.tensorboard_log_dir.mkdir(parents=True, exist_ok=True)
-    train_config.checkpoint_path.mkdir(parents=True, exist_ok=True)
-    writer = SummaryWriter(log_dir=str(train_config.tensorboard_log_dir))
+    tensorboard_log_dir = Path(train_config.tensorboard_log_dir)
+    checkpoint_dir = Path(train_config.checkpoint_path)
+
+    tensorboard_log_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    writer = SummaryWriter(log_dir=str(tensorboard_log_dir))
 
     # Train for a few epochs
     for epoch in range(train_config.num_epochs):
@@ -108,14 +112,12 @@ def train_base_cnn(
         )
 
         if (epoch + 1) % train_config.save_checkpoint_every == 0:
-            checkpoint_path = (
-                train_config.checkpoint_path / f"checkpoint_epoch_{epoch + 1}.pt"
-            )
-            torch.save(model.state_dict(), checkpoint_path)
-            print(f"Saved checkpoint to {checkpoint_path}")
+            checkpoint_file = checkpoint_dir / f"checkpoint_epoch_{epoch + 1}.pt"
+            torch.save(model.state_dict(), checkpoint_file)
+            print(f"Saved checkpoint to {checkpoint_file}")
 
     # save final model
-    final_model_path = train_config.checkpoint_path / "final_model.pt"
+    final_model_path = checkpoint_dir / "final_model.pt"
     torch.save(model.state_dict(), final_model_path)
     print(f"Saved final model to {final_model_path}")
 

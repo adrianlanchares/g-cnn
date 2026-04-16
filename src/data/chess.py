@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import os
+from pathlib import Path
 
 import torch
 from datasets import load_dataset
@@ -48,14 +49,16 @@ def cp_from_row(row: dict, clip_cp: int, mate_value: int) -> int:
 
 
 def get_fen_eval_csv(cfg: DictConfig):
-    if os.path.isfile(cfg.output_csv):
-        print(f"Output already exists at {cfg.output_csv}. Skipping download.")
+    output_csv = Path(cfg.output_csv)
+
+    if output_csv.is_file():
+        print(f"Output already exists at {output_csv}. Skipping download.")
         return
 
-    cfg.output_csv.parent.mkdir(parents=True, exist_ok=True)
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
 
     # Streaming mode avoids downloading the whole dataset first.
-    ds = load_dataset(cfg.dataset_name, split="train", streaming=True)
+    ds = load_dataset(cfg.dataset_name, split=cfg.dataset_split, streaming=True)
 
     seen = set()
     written = 0
@@ -65,7 +68,7 @@ def get_fen_eval_csv(cfg: DictConfig):
 
     errors = 0
 
-    with open(cfg.output_csv, "w", newline="", encoding="utf-8") as f:
+    with open(output_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -103,7 +106,7 @@ def get_fen_eval_csv(cfg: DictConfig):
             if written >= cfg.max_rows:
                 break
 
-    print(f"Done. Wrote {written:,} rows to {cfg.output_csv}, with {errors} errors.")
+    print(f"Done. Wrote {written:,} rows to {output_csv}, with {errors} errors.")
     return
 
 
@@ -185,14 +188,14 @@ def build_and_save_tensor_dataset(
     cfg: DictConfig,
 ):
     """Build tensors from the exported CSV and save them to disk."""
-    output_path = cfg.output_tensor_dataset
-    if os.path.isfile(output_path):
+    output_path = Path(cfg.output_tensor_dataset)
+    if output_path.is_file():
         print(f"Output already exists at {output_path}. Skipping processing.")
         return
 
-    cfg.output_tensor_dataset.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    positions, evaluations = csv_to_position_eval_tensors(cfg.output_csv)
+    positions, evaluations = csv_to_position_eval_tensors(str(Path(cfg.output_csv)))
 
     dataset = {
         "positions": positions,
@@ -216,8 +219,8 @@ def prepare_chess_dataset(cfg: DictConfig):
 
 def load_chess_tensor_dataset(cfg: DictConfig) -> ChessPositionEvaluationDataset:
     """Load the processed tensor dataset from disk and return a PyTorch Dataset."""
-    dataset_path = cfg.output_tensor_dataset
-    if not os.path.isfile(dataset_path):
+    dataset_path = Path(cfg.output_tensor_dataset)
+    if not dataset_path.is_file():
         prepare_chess_dataset(cfg)
 
     data = torch.load(dataset_path)

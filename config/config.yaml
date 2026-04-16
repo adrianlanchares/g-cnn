@@ -1,13 +1,11 @@
 defaults:
+  - data: chess
+  - train: default
+  - model: base_cnn
   - _self_
 
 problem: chess
 mode: base_cnn
-
-train: ${problem}/train
-data: ${problem}/data
-model: ${problem}/models/${mode}
-
 seed: 42
 
 hydra:

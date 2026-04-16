@@ -1,3 +1,5 @@
+_target_: src.models.gecnn.GECNN
+
 in_channels: 12
 out_channels: 64
 
@@ -6,8 +8,8 @@ kernel_sizes: [3, 3]
 strides: [1, 1]
 
 use_pooling: false
-pooling_kernel_size: 2
+pool_kernel_size: 2
 pool_stride: 1
 
 linear_out_features: 10
-group: "Z2"
+group: Z2

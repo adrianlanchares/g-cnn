@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 from escnn import gspaces
 from escnn import nn as enn
-
-from config.models import GECNNConfig
+from omegaconf import DictConfig
 
 GSPACES = {
     "Z2": lambda: gspaces.flip2dOnR2(),  # reflection only,  group size 2
@@ -13,7 +12,7 @@ GSPACES = {
 
 
 class GECNN(nn.Module):
-    def __init__(self, cfg: GECNNConfig):
+    def __init__(self, cfg: DictConfig):
         """Group-Equivariant CNN using escnn.
 
         Architecture mirrors BaseCNN exactly:
