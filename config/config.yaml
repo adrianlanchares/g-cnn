@@ -8,6 +8,8 @@ train: ${problem}/train
 data: ${problem}/data
 model: ${problem}/models/${mode}
 
+seed: 42
+
 hydra:
   run:
     dir: ${hydra:runtime.cwd}/outputs/${problem}/${mode}/${now:%Y-%m-%d}/${now:%H-%M-%S}

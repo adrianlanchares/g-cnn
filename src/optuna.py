@@ -93,11 +93,11 @@ def _build_trial_command(
     for key, value in sampled.items():
         if isinstance(value, float):
             if math.isfinite(value):
-                cmd.append(f"{key}={value:.12g}")
+                cmd.append(f"+{key}={value:.12g}")
             else:
-                cmd.append(f"{key}={value}")
+                cmd.append(f"+{key}={value}")
         else:
-            cmd.append(f"{key}={value}")
+            cmd.append(f"+{key}={value}")
 
     return cmd
 
@@ -140,6 +140,12 @@ def _objective(args: argparse.Namespace, output_root: Path):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Optuna hyperparameter optimization")
+    parser.add_argument(
+        "--algorithm",
+        type=str,
+        default="tpe",
+        help="Optuna sampling algorithm to use (e.g., 'tpe')",
+    )
     parser.add_argument(
         "--study-name",
         type=str,

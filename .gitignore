@@ -217,3 +217,7 @@ models/
 !config/chess/models/
 !config/mnist/models/
 logs/
+
+
+outputs/
+study.db

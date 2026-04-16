@@ -1,5 +1,4 @@
 import hydra
-from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
 from src.training.train_base_cnn import train_base_cnn
@@ -11,11 +10,11 @@ _TRAINERS = {
 
 @hydra.main(version_base=None, config_path="../config", config_name="config")
 def main(cfg: DictConfig) -> None:
-    model: str = HydraConfig.get().runtime.choices["mode"]
-    if model not in _TRAINERS:
-        raise ValueError(f"Unsupported model: {model}")
+    mode: str = cfg.mode
+    if mode not in _TRAINERS:
+        raise ValueError(f"Unsupported mode: {mode}")
 
-    trainer = _TRAINERS[model]
+    trainer = _TRAINERS[mode]
     trainer(cfg)
 
 
