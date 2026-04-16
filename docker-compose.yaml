@@ -5,14 +5,10 @@ services:
     container_name: chess-gecnn
     stdin_open: true
     tty: true
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    
     volumes:
       - .:/app
+    ports:
+      - "8021:8000"
     working_dir: /app
     command: ["bash"]
