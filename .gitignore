@@ -212,10 +212,9 @@ __marimo__/
 
 data/
 !src/data/
+!config/data/
 models/
 !src/models/
-!config/chess/models/
-!config/mnist/models/
 logs/
 
 

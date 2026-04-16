@@ -11,4 +11,4 @@ use_pooling: false
 pool_kernel_size: 2
 pool_stride: 1
 
-linear_out_features: 10
+linear_out_features: 1

@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from escnn import gspaces
 from escnn import nn as enn
-from omegaconf import DictConfig
 
 GSPACES = {
     "Z2": lambda: gspaces.flip2dOnR2(),  # reflection only,  group size 2
@@ -12,7 +11,19 @@ GSPACES = {
 
 
 class GECNN(nn.Module):
-    def __init__(self, cfg: DictConfig):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: list[int],
+        kernel_sizes: list[int],
+        strides: list[int],
+        use_pooling: bool = False,
+        pool_kernel_size: int = 2,
+        pool_stride: int = 2,
+        linear_out_features: int = 1,
+        group: str = "Z2",
+    ):
         """Group-Equivariant CNN using escnn.
 
         Architecture mirrors BaseCNN exactly:
@@ -27,7 +38,14 @@ class GECNN(nn.Module):
         carrying both data and transformation behaviour under the group.
 
         Args:
-            cfg: GECNNConfig instance specifying architecture and symmetry group.
+            in_channels: Number of input channels.
+            out_channels: Number of output channels.
+            hidden_channels: List of hidden channel sizes.
+            kernel_sizes: List of kernel sizes for each convolutional layer.
+            use_pooling: Whether to use pooling layers.
+            pool_kernel_size: Kernel size for pooling layers.
+            pool_stride: Stride for pooling layers.
+            linear_out_features: Number of output features for the final linear layer.
 
         Raises:
             ValueError: If hidden_channels and kernel_sizes have different lengths.
@@ -35,26 +53,28 @@ class GECNN(nn.Module):
         """
         super().__init__()
 
-        if len(cfg.hidden_channels) != len(cfg.kernel_sizes):
+        if len(hidden_channels) != len(kernel_sizes):
             raise ValueError(
                 "Length of hidden_channels and kernel_sizes must be the same."
             )
-        if cfg.group not in GSPACES:
+        if group not in GSPACES:
             raise ValueError(
-                f"Unknown group '{cfg.group}'. Choose from: {list(GSPACES.keys())}"
+                f"Unknown group '{group}'. Choose from: {list(GSPACES.keys())}"
             )
 
-        self.gspace = GSPACES[cfg.group]()
+        self.gspace = GSPACES[group]()
         repr = self.gspace.regular_repr
 
         self.in_type = enn.FieldType(
-            self.gspace, cfg.in_channels * [self.gspace.trivial_repr]
+            self.gspace, in_channels * [self.gspace.trivial_repr]
         )
 
         blocks = []
         current_type = self.in_type
 
-        for hidden_channel, kernel_size in zip(cfg.hidden_channels, cfg.kernel_sizes):
+        for hidden_channel, kernel_size, stride in zip(
+            hidden_channels, kernel_sizes, strides
+        ):
             out_type = enn.FieldType(self.gspace, hidden_channel * [repr])
             blocks.append(
                 enn.R2Conv(
@@ -62,23 +82,24 @@ class GECNN(nn.Module):
                     out_type,
                     kernel_size=kernel_size,
                     padding=kernel_size // 2,
+                    stride=stride,
                     bias=False,  # standard practice with equivariant convs
                 )
             )
             blocks.append(enn.ReLU(out_type))  # equivariant ReLU
 
-            if cfg.use_pooling:
+            if use_pooling:
                 blocks.append(
                     enn.PointwiseMaxPool(
                         out_type,
-                        kernel_size=cfg.pool_kernel_size,
-                        stride=cfg.pool_stride,
+                        kernel_size=pool_kernel_size,
+                        stride=pool_stride,
                     )
                 )
             current_type = out_type
 
         # 1x1 projection conv (matches BaseCNN structure)
-        proj_type = enn.FieldType(self.gspace, cfg.out_channels * [repr])
+        proj_type = enn.FieldType(self.gspace, out_channels * [repr])
         blocks.append(
             enn.R2Conv(
                 current_type,
@@ -97,7 +118,7 @@ class GECNN(nn.Module):
         # these are plain nn layers — GeometricTensor is unwrapped after GroupPooling
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.flatten = nn.Flatten()
-        self.head = nn.Linear(cfg.out_channels, cfg.linear_out_features)
+        self.head = nn.Linear(out_channels, linear_out_features)
 
     def _get_param_count(self) -> int:
         return sum(p.numel() for p in self.parameters() if p.requires_grad)

@@ -91,13 +91,16 @@ def _build_trial_command(
     ]
 
     for key, value in sampled.items():
+        if value is None:
+            continue
+
         if isinstance(value, float):
             if math.isfinite(value):
-                cmd.append(f"+{key}={value:.12g}")
+                cmd.append(f"{key}={value:.12g}")
             else:
-                cmd.append(f"+{key}={value}")
+                cmd.append(f"{key}={value}")
         else:
-            cmd.append(f"+{key}={value}")
+            cmd.append(f"{key}={value}")
 
     return cmd
 
