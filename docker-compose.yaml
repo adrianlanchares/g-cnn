@@ -5,16 +5,10 @@ services:
     container_name: chess-gecnn
     stdin_open: true
     tty: true
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    
     volumes:
       - .:/app
     ports:
-      - "6067:6067"
+      - "8067:8000"
     working_dir: /app
     command: ["uv", "run", "python", "-m", "src.optuna", "--study-name", "chess-basecnn-3"]
