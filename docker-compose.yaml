@@ -9,6 +9,6 @@ services:
     volumes:
       - .:/app
     ports:
-      - "8021:8000"
+      - "8067:8000"
     working_dir: /app
-    command: ["bash"]
+    command: ["uv", "run", "python", "-m", "src.optuna", "--study-name", "chess-basecnn-3"]

@@ -18,11 +18,11 @@ RUN apt-get update && apt-get install -y \
     ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir uv
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
 
-COPY pyproject.toml uv.lock ./
+COPY requirements.txt .
 
-RUN uv sync --frozen --no-cache
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY . .
 

@@ -41,6 +41,8 @@ class BaseCNN(nn.Module):
         """
         super().__init__()
 
+        # TODO: Make CNNBlock class and MLPBlock class. No pooling
+
         if len(hidden_channels) != len(kernel_sizes):
             raise ValueError(
                 "Length of hidden_channels and kernel_sizes must be the same."
@@ -79,7 +81,6 @@ class BaseCNN(nn.Module):
             )
         )
 
-        layers.append(nn.AdaptiveAvgPool2d((1, 1)))
         layers.append(nn.Flatten())
         layers.append(nn.Linear(out_channels, linear_out_features))
 
