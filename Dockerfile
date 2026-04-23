@@ -22,14 +22,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /usr/bin/python3 /usr/bin/python
 
-RUN pip3 install --no-cache-dir uv
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
 
-COPY pyproject.toml uv.lock ./
+COPY requirements.txt .
 
-RUN uv sync --frozen --no-cache
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE 6067
 
 CMD ["bash"]
