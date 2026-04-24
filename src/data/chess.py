@@ -1,6 +1,5 @@
 import csv
 import hashlib
-import os
 from pathlib import Path
 
 import torch
@@ -227,8 +226,20 @@ def load_chess_tensor_dataset(cfg: DictConfig) -> ChessPositionEvaluationDataset
     positions = data["positions"]
     evaluations = data["evaluations"]
 
+    train_split = cfg.train_split
+    train_end = int(len(positions) * train_split)
+
+    train_positions = positions[:train_end]
+    train_evals = evaluations[:train_end]
+
+    test_positions = positions[train_end:]
+    test_evals = evaluations[train_end:]
+
+    train_dataset = ChessPositionEvaluationDataset(train_positions, train_evals)
+    test_dataset = ChessPositionEvaluationDataset(test_positions, test_evals)
+
     print(
         f"Loaded tensor dataset from {dataset_path} with positions shape "
         f"{tuple(positions.shape)} and evaluations shape {tuple(evaluations.shape)}."
     )
-    return ChessPositionEvaluationDataset(positions, evaluations)
+    return train_dataset, test_dataset

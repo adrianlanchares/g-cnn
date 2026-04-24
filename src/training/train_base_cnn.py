@@ -90,8 +90,13 @@ def train_base_cnn(
     device = torch.device(train_config.device)
 
     # Load dataset
-    dataset = load_chess_tensor_dataset(data_config)
-    dataloader = DataLoader(dataset, batch_size=train_config.batch_size, shuffle=True)
+    train_dataset, test_dataset = load_chess_tensor_dataset(data_config)
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=train_config.batch_size, shuffle=True
+    )
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=train_config.batch_size, shuffle=False
+    )
 
     # Initialize model, loss function, and optimizer
     model = instantiate(model_config).to(device)
@@ -115,9 +120,9 @@ def train_base_cnn(
     # Train for a few epochs
     for epoch in range(train_config.num_epochs):
         avg_train_loss, epoch_time_sec = _train_one_epoch(
-            model, loss_fn, optimizer, dataloader, device, epoch, writer
+            model, loss_fn, optimizer, train_dataloader, device, epoch, writer
         )
-        avg_eval_loss = evaluate(model, loss_fn, dataloader, device)
+        avg_eval_loss = evaluate(model, loss_fn, test_dataloader, device)
 
         writer.add_scalar("train/avg_loss", avg_train_loss, epoch + 1)
         writer.add_scalar("eval/avg_loss", avg_eval_loss, epoch + 1)
