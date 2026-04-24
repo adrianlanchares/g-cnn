@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from src.models.modules import CNNBlock, MLPBlock
+
 
 class BaseCNN(nn.Module):
     def __init__(
@@ -10,9 +12,7 @@ class BaseCNN(nn.Module):
         hidden_channels: list[int],
         kernel_sizes: list[int],
         strides: list[int],
-        use_pooling: bool = False,
-        pool_kernel_size: int = 2,
-        pool_stride: int = 2,
+        padding: list[int],
         linear_out_features: int = 1,
     ):
         """Base CNN model for the project. It has the following architecture:
@@ -22,7 +22,6 @@ class BaseCNN(nn.Module):
             - Flatten
             - Linear
 
-           Pooling layers are optional and can be controlled by the `use_pooling` flag in the config.
            The number of convolutional blocks is determined by the length of `hidden_channels` and `kernel_sizes` in the config.
 
         Args:
@@ -30,9 +29,8 @@ class BaseCNN(nn.Module):
             out_channels: Number of output channels.
             hidden_channels: List of hidden channel sizes.
             kernel_sizes: List of kernel sizes for each convolutional layer.
-            use_pooling: Whether to use pooling layers.
-            pool_kernel_size: Kernel size for pooling layers.
-            pool_stride: Stride for pooling layers.
+            strides: List of strides for each convolutional layer.
+            padding: List of padding for each convolutional layer.
             linear_out_features: Number of output features for the final linear layer.
 
         Raises:
@@ -41,48 +39,62 @@ class BaseCNN(nn.Module):
         """
         super().__init__()
 
-        # TODO: Make CNNBlock class and MLPBlock class. No pooling
-
         if len(hidden_channels) != len(kernel_sizes):
             raise ValueError(
                 "Length of hidden_channels and kernel_sizes must be the same."
             )
 
         layers = []
-        in_channels = in_channels
-        for hidden_channel, kernel_size, stride in zip(
-            hidden_channels, kernel_sizes, strides
+        current_in_channels = in_channels
+
+        for hidden_channel, kernel_size, stride, pad in zip(
+            hidden_channels, kernel_sizes, strides, padding
         ):
             layers.append(
-                nn.Conv2d(
-                    in_channels=in_channels,
+                CNNBlock(
+                    in_channels=current_in_channels,
                     out_channels=hidden_channel,
                     kernel_size=kernel_size,
                     stride=stride,
-                    padding=kernel_size // 2,
+                    padding=pad,
                 )
             )
-            layers.append(nn.ReLU())
-
-            if use_pooling:
-                layers.append(
-                    nn.MaxPool2d(
-                        kernel_size=pool_kernel_size,
-                        stride=pool_stride,
-                    )
-                )
-            in_channels = hidden_channel
+            current_in_channels = hidden_channel
 
         layers.append(
-            nn.Conv2d(
-                in_channels=in_channels,
+            CNNBlock(
+                in_channels=current_in_channels,
                 out_channels=out_channels,
-                kernel_size=1,
+                kernel_size=3,
+                stride=1,
+                padding=1,
             )
         )
 
         layers.append(nn.Flatten())
-        layers.append(nn.Linear(out_channels, linear_out_features))
+
+        # Calculate the number of features after the convolutional layers to determine the input size for the linear layer
+        dummy_input = torch.zeros(1, in_channels, 8, 8)
+        with torch.no_grad():
+            dummy_output = nn.Sequential(*layers)(dummy_input)
+        linear_in_features = dummy_output.shape[1]
+
+        layers.extend(
+            [
+                MLPBlock(
+                    in_features=linear_in_features,
+                    out_features=linear_in_features,
+                ),
+                MLPBlock(
+                    in_features=linear_in_features,
+                    out_features=linear_in_features // 2,
+                ),
+                nn.Linear(
+                    in_features=linear_in_features // 2,
+                    out_features=linear_out_features,
+                ),
+            ]
+        )
 
         self.layers = nn.Sequential(*layers)
 

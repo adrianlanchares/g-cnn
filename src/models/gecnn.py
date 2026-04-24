@@ -18,9 +18,7 @@ class GECNN(nn.Module):
         hidden_channels: list[int],
         kernel_sizes: list[int],
         strides: list[int],
-        use_pooling: bool = False,
-        pool_kernel_size: int = 2,
-        pool_stride: int = 2,
+        padding: list[int],
         linear_out_features: int = 1,
         group: str = "Z2",
     ):
@@ -42,9 +40,8 @@ class GECNN(nn.Module):
             out_channels: Number of output channels.
             hidden_channels: List of hidden channel sizes.
             kernel_sizes: List of kernel sizes for each convolutional layer.
-            use_pooling: Whether to use pooling layers.
-            pool_kernel_size: Kernel size for pooling layers.
-            pool_stride: Stride for pooling layers.
+            strides: List of strides for each convolutional layer.
+            padding: List of padding for each convolutional layer.
             linear_out_features: Number of output features for the final linear layer.
 
         Raises:
@@ -72,8 +69,8 @@ class GECNN(nn.Module):
         blocks = []
         current_type = self.in_type
 
-        for hidden_channel, kernel_size, stride in zip(
-            hidden_channels, kernel_sizes, strides
+        for hidden_channel, kernel_size, stride, pad in zip(
+            hidden_channels, kernel_sizes, strides, padding
         ):
             out_type = enn.FieldType(self.gspace, hidden_channel * [repr])
             blocks.append(
@@ -81,21 +78,13 @@ class GECNN(nn.Module):
                     current_type,
                     out_type,
                     kernel_size=kernel_size,
-                    padding=kernel_size // 2,
+                    padding=pad,
                     stride=stride,
                     bias=False,  # standard practice with equivariant convs
                 )
             )
             blocks.append(enn.ReLU(out_type))  # equivariant ReLU
 
-            if use_pooling:
-                blocks.append(
-                    enn.PointwiseMaxPool(
-                        out_type,
-                        kernel_size=pool_kernel_size,
-                        stride=pool_stride,
-                    )
-                )
             current_type = out_type
 
         # 1x1 projection conv (matches BaseCNN structure)

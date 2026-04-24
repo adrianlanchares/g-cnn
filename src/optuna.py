@@ -27,18 +27,10 @@ def _sample_basecnn_params(trial: optuna.Trial) -> dict:
         kernel_sizes.append(trial.suggest_int(f"kernel_size_{i}", 3, 7, step=2))
         strides.append(trial.suggest_int(f"stride_{i}", 1, 2))
 
-    use_pooling = trial.suggest_categorical("use_pooling", [True, False])
-    if use_pooling:
-        pool_kernel_size = trial.suggest_int("pool_kernel_size", 2, 4)
-        pool_stride = trial.suggest_int("pool_stride", 2, 4)
-
     return {
         "model.hidden_channels": hidden_channels,
         "model.kernel_sizes": kernel_sizes,
         "model.strides": strides,
-        "model.use_pooling": use_pooling,
-        "model.pool_kernel_size": pool_kernel_size if use_pooling else None,
-        "model.pool_stride": pool_stride if use_pooling else None,
         "train.lr": trial.suggest_float("lr", 1e-5, 1e-2, log=True),
         "train.batch_size": trial.suggest_categorical("batch_size", [32, 64, 128]),
     }

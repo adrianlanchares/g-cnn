@@ -10,5 +10,6 @@ services:
       - .:/app
     ports:
       - "8067:8000"
+      - "6067:6006"
     working_dir: /app
-    command: ["uv", "run", "python", "-m", "src.optuna", "--study-name", "chess-basecnn-3"]
+    command: ["python", "-m", "src.optuna", "--study-name", "chess-basecnn-1"]
