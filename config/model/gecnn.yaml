@@ -1,13 +1,15 @@
 _target_: src.models.gecnn.GECNN
 
 in_channels: 12
-out_channels: 64
+out_channels: 128
 
-hidden_channels: [32, 64]
-kernel_sizes: [3, 3]
-strides: [1, 1]
-padding: [1, 1]
+hidden_channels: [32, 32, 64, 128, 128]
+kernel_sizes: [3, 3, 3, 3, 3]
+strides: [1, 1, 1, 1, 1]
+padding: [1, 1, 1, 1, 1]
 
+batchnorm: true
 
-linear_out_features: 10
+linear_hidden_features: [256, 128, 64]
+linear_out_features: 1
 group: Z2
