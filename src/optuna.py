@@ -37,6 +37,8 @@ def _sample_basecnn_params(trial: optuna.Trial) -> dict:
     learning_rate = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
     batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
 
+    use_batchnorm = trial.suggest_categorical("use_batch_norm", [True, False])
+
     return {
         "model.hidden_channels": hidden_channels,
         "model.kernel_sizes": kernel_sizes,
@@ -45,6 +47,7 @@ def _sample_basecnn_params(trial: optuna.Trial) -> dict:
         "model.linear_hidden_features": linear_hidden_features,
         "train.lr": learning_rate,
         "train.batch_size": batch_size,
+        "model.batchnorm": use_batchnorm,
     }
 
 
