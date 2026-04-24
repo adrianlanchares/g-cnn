@@ -3,6 +3,8 @@ import torch.nn as nn
 from escnn import gspaces
 from escnn import nn as enn
 
+from src.models.modules import GECNNBlock, MLPBlock
+
 GSPACES = {
     "Z2": lambda: gspaces.flip2dOnR2(),  # reflection only,  group size 2
     "p4": lambda: gspaces.rot2dOnR2(N=4),  # 4 rotations,      group size 4
@@ -19,6 +21,8 @@ class GECNN(nn.Module):
         kernel_sizes: list[int],
         strides: list[int],
         padding: list[int],
+        batchnorm: bool,
+        linear_hidden_features: list[int],
         linear_out_features: int = 1,
         group: str = "Z2",
     ):
@@ -59,55 +63,53 @@ class GECNN(nn.Module):
                 f"Unknown group '{group}'. Choose from: {list(GSPACES.keys())}"
             )
 
-        self.gspace = GSPACES[group]()
-        repr = self.gspace.regular_repr
-
         self.in_type = enn.FieldType(
-            self.gspace, in_channels * [self.gspace.trivial_repr]
+            GSPACES[group](), in_channels * [GSPACES[group]().regular_repr]
         )
 
         blocks = []
-        current_type = self.in_type
 
         for hidden_channel, kernel_size, stride, pad in zip(
             hidden_channels, kernel_sizes, strides, padding
         ):
-            out_type = enn.FieldType(self.gspace, hidden_channel * [repr])
             blocks.append(
-                enn.R2Conv(
-                    current_type,
-                    out_type,
+                GECNNBlock(
+                    in_channels=in_channels,
+                    out_channels=hidden_channel,
                     kernel_size=kernel_size,
-                    padding=pad,
                     stride=stride,
-                    bias=False,  # standard practice with equivariant convs
+                    padding=pad,
+                    group=group,
+                    batchnorm=batchnorm,
                 )
             )
-            blocks.append(enn.ReLU(out_type))  # equivariant ReLU
+            in_channels = hidden_channel  # for next layer
 
-            current_type = out_type
-
-        # 1x1 projection conv (matches BaseCNN structure)
-        proj_type = enn.FieldType(self.gspace, out_channels * [repr])
         blocks.append(
-            enn.R2Conv(
-                current_type,
-                proj_type,
-                kernel_size=1,
-                bias=False,
+            GECNNBlock(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=3,
+                stride=1,
+                padding=0,
+                group=group,
             )
         )
 
-        # GroupPooling: averages over the group dimension → makes output invariant
-        # output is a plain tensor after this, not a GeometricTensor
-        blocks.append(enn.GroupPooling(proj_type))
-
         self.eq_layers = enn.SequentialModule(*blocks)
 
-        # these are plain nn layers — GeometricTensor is unwrapped after GroupPooling
-        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.flatten = nn.Flatten()
-        self.head = nn.Linear(out_channels, linear_out_features)
+
+        # Calculate the number of features after the convolutional layers to determine the input size for the linear layer
+        linear_in_features = out_channels
+        linear_layers = []
+        for hidden_feature in linear_hidden_features:
+            linear_layers.append(MLPBlock(linear_in_features, hidden_feature))
+            linear_in_features = hidden_feature
+
+        linear_layers.append(nn.Linear(linear_in_features, linear_out_features))
+
+        self.head = nn.Sequential(*linear_layers)
 
     def _get_param_count(self) -> int:
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -116,13 +118,9 @@ class GECNN(nn.Module):
         # wrap input tensor into a GeometricTensor so escnn can track transformations
         x = enn.GeometricTensor(x, self.in_type)
 
-        # equivariant layers — x stays a GeometricTensor throughout
         x = self.eq_layers(x)
-
-        # unwrap: GroupPooling already converted to plain tensor
         x = x.tensor
 
-        # standard layers from here
-        x = self.pool(x)
         x = self.flatten(x)
-        return self.head(x)
+        x = self.head(x)
+        return x

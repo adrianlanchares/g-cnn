@@ -75,24 +75,29 @@ class BaseCNN(nn.Module):
             )
         )
 
-        layers.append(nn.Flatten())
+        self.conv_layers = nn.Sequential(*layers)
+
+        self.flatten = nn.Flatten()
 
         # Calculate the number of features after the convolutional layers to determine the input size for the linear layer
         dummy_input = torch.zeros(1, in_channels, 8, 8)
         with torch.no_grad():
-            dummy_output = nn.Sequential(*layers)(dummy_input)
+            dummy_output = self.conv_layers(dummy_input)
         linear_in_features = dummy_output.shape[1]
 
+        head_layers = []
         for feature_size in linear_hidden_features:
-            layers.append(MLPBlock(linear_in_features, feature_size))
+            head_layers.append(MLPBlock(linear_in_features, feature_size))
             linear_in_features = feature_size
 
-        layers.append(nn.Linear(linear_in_features, linear_out_features))
-
-        self.layers = nn.Sequential(*layers)
+        head_layers.append(nn.Linear(linear_in_features, linear_out_features))
+        self.head = nn.Sequential(*head_layers)
 
     def _get_param_count(self) -> int:
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.layers(x)
+        x = self.conv_layers(x)
+        x = self.flatten(x)
+        x = self.head(x)
+        return x
