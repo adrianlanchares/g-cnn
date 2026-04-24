@@ -18,21 +18,33 @@ def _sample_basecnn_params(trial: optuna.Trial) -> dict:
     # Model architecture parameters
     num_conv_layers = trial.suggest_int("num_conv_layers", 2, 5)
     hidden_channels = []
-    kernel_sizes = []
-    strides = []
     for i in range(num_conv_layers):
         hidden_channels.append(
             trial.suggest_int(f"hidden_channels_{i}", 16, 256, log=True)
         )
-        kernel_sizes.append(trial.suggest_int(f"kernel_size_{i}", 3, 7, step=2))
-        strides.append(trial.suggest_int(f"stride_{i}", 1, 2))
+
+    kernel_sizes = [3] * num_conv_layers
+    strides = [1] * num_conv_layers
+    padding = [1] * num_conv_layers
+
+    num_linear_layers = trial.suggest_int("num_linear_layers", 1, 3)
+    linear_hidden_features = []
+    for i in range(num_linear_layers):
+        linear_hidden_features.append(
+            trial.suggest_int(f"linear_hidden_features_{i}", 16, 512, log=True)
+        )
+
+    learning_rate = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
+    batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
 
     return {
         "model.hidden_channels": hidden_channels,
         "model.kernel_sizes": kernel_sizes,
         "model.strides": strides,
-        "train.lr": trial.suggest_float("lr", 1e-5, 1e-2, log=True),
-        "train.batch_size": trial.suggest_categorical("batch_size", [32, 64, 128]),
+        "model.padding": padding,
+        "model.linear_hidden_features": linear_hidden_features,
+        "train.lr": learning_rate,
+        "train.batch_size": batch_size,
     }
 
 

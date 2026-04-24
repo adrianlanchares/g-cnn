@@ -13,6 +13,8 @@ class BaseCNN(nn.Module):
         kernel_sizes: list[int],
         strides: list[int],
         padding: list[int],
+        batchnorm: bool,
+        linear_hidden_features: list[int],
         linear_out_features: int = 1,
     ):
         """Base CNN model for the project. It has the following architecture:
@@ -31,6 +33,7 @@ class BaseCNN(nn.Module):
             kernel_sizes: List of kernel sizes for each convolutional layer.
             strides: List of strides for each convolutional layer.
             padding: List of padding for each convolutional layer.
+            linear_hidden_features: List of hidden feature sizes for the linear layers.
             linear_out_features: Number of output features for the final linear layer.
 
         Raises:
@@ -57,6 +60,7 @@ class BaseCNN(nn.Module):
                     kernel_size=kernel_size,
                     stride=stride,
                     padding=pad,
+                    batchnorm=batchnorm,
                 )
             )
             current_in_channels = hidden_channel
@@ -79,22 +83,11 @@ class BaseCNN(nn.Module):
             dummy_output = nn.Sequential(*layers)(dummy_input)
         linear_in_features = dummy_output.shape[1]
 
-        layers.extend(
-            [
-                MLPBlock(
-                    in_features=linear_in_features,
-                    out_features=linear_in_features,
-                ),
-                MLPBlock(
-                    in_features=linear_in_features,
-                    out_features=linear_in_features // 2,
-                ),
-                nn.Linear(
-                    in_features=linear_in_features // 2,
-                    out_features=linear_out_features,
-                ),
-            ]
-        )
+        for feature_size in linear_hidden_features:
+            layers.append(MLPBlock(linear_in_features, feature_size))
+            linear_in_features = feature_size
+
+        layers.append(nn.Linear(linear_in_features, linear_out_features))
 
         self.layers = nn.Sequential(*layers)
 

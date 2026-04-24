@@ -8,4 +8,7 @@ kernel_sizes: [3, 3, 3, 3, 3]
 strides: [1, 1, 1, 1, 1]
 padding: [1, 1, 1, 1, 1]
 
+batchnorm: true
+
+linear_hidden_features: [256, 128, 64]
 linear_out_features: 1

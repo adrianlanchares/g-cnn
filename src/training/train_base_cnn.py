@@ -1,7 +1,9 @@
+import time
+from pathlib import Path
+
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
-from pathlib import Path
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -14,15 +16,22 @@ def _train_one_epoch(
     loss_fn: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     dataloader: DataLoader,
-    device: str,
+    device: torch.device,
     epoch: int,
     writer: SummaryWriter,
 ):
     """Train the model for one epoch on the given dataset."""
     model.train()
     total_loss = 0.0
+    epoch_start_time = time.perf_counter()
+    is_cuda = device.type == "cuda" and torch.cuda.is_available()
+
+    if is_cuda:
+        torch.cuda.reset_peak_memory_stats(device)
 
     for step, (positions, evaluations) in enumerate(dataloader):
+        global_step = epoch * len(dataloader) + step
+
         print(f"Step {step + 1}/{len(dataloader)}\t\t\t", end="\r")
         positions = positions.to(device)
         evaluations = evaluations.to(device)
@@ -31,21 +40,26 @@ def _train_one_epoch(
         loss = loss_fn(outputs.squeeze(), evaluations)
         total_loss += loss.item()
 
-        writer.add_scalar(
-            "train/step_loss", loss.item(), epoch * len(dataloader) + step
-        )
+        writer.add_scalar("train/step_loss", loss.item(), global_step)
 
         optimizer.zero_grad()
         loss.backward()
+
         optimizer.step()
 
-    print("\n\n")
+        current_lr = optimizer.param_groups[0]["lr"]
+        writer.add_scalar("train/lr", current_lr, global_step)
 
-    return total_loss / len(dataloader)
+    epoch_time_sec = time.perf_counter() - epoch_start_time
+
+    return total_loss / len(dataloader), epoch_time_sec
 
 
 def evaluate(
-    model: BaseCNN, loss_fn: torch.nn.Module, dataloader: DataLoader, device: str
+    model: BaseCNN,
+    loss_fn: torch.nn.Module,
+    dataloader: DataLoader,
+    device: torch.device,
 ):
     """Evaluate the model on the given dataset."""
     model.eval()
@@ -100,15 +114,20 @@ def train_base_cnn(
 
     # Train for a few epochs
     for epoch in range(train_config.num_epochs):
-        avg_train_loss = _train_one_epoch(
+        avg_train_loss, epoch_time_sec = _train_one_epoch(
             model, loss_fn, optimizer, dataloader, device, epoch, writer
         )
         avg_eval_loss = evaluate(model, loss_fn, dataloader, device)
 
+        writer.add_scalar("train/avg_loss", avg_train_loss, epoch + 1)
         writer.add_scalar("eval/avg_loss", avg_eval_loss, epoch + 1)
+        writer.add_scalar("train/epoch_time_sec", epoch_time_sec, epoch + 1)
 
         print(
-            f"Epoch {epoch + 1}/{train_config.num_epochs}, Average Loss: {avg_train_loss:.4f}"
+            f"Epoch {epoch + 1}/{train_config.num_epochs}, "
+            f"Train Loss: {avg_train_loss:.4f}, "
+            f"Eval Loss: {avg_eval_loss:.4f}, "
+            f"Epoch Time: {epoch_time_sec:.2f}s, "
         )
 
         if (epoch + 1) % train_config.save_checkpoint_every == 0:

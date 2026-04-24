@@ -9,6 +9,7 @@ class CNNBlock(nn.Module):
         kernel_size: int,
         stride: int,
         padding: int,
+        batchnorm: bool = False,
     ):
         super().__init__()
         layers = [
@@ -21,6 +22,8 @@ class CNNBlock(nn.Module):
             ),
             nn.ReLU(),
         ]
+        if batchnorm:
+            layers.append(nn.BatchNorm2d(out_channels))
 
         self.block = nn.Sequential(*layers)
 
