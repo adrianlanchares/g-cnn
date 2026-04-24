@@ -13,3 +13,5 @@ batchnorm: true
 linear_hidden_features: [256, 128, 64]
 linear_out_features: 1
 group: Z2
+
+final_tanh: true

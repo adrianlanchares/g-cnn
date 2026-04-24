@@ -28,10 +28,11 @@ class CNNBlock(nn.Module):
                 stride=stride,
                 padding=padding,
             ),
-            nn.ReLU(),
         ]
         if batchnorm:
             layers.append(nn.BatchNorm2d(out_channels))
+
+        layers.append(nn.ReLU())
 
         self.block = nn.Sequential(*layers)
 
@@ -68,10 +69,11 @@ class GECNNBlock(nn.Module):
                 padding=padding,
                 bias=False,  # standard practice with equivariant convs
             ),
-            enn.ReLU(out_type),  # equivariant ReLU
         ]
         if batchnorm:
             layers.append(enn.InnerBatchNorm(out_type))
+
+        layers.append(enn.ReLU(out_type))
 
         self.block = enn.SequentialModule(*layers)
 

@@ -179,6 +179,10 @@ def csv_to_position_eval_tensors(csv_path: str) -> tuple[torch.Tensor, torch.Ten
 
     positions = torch.stack(position_tensors, dim=0)
     evals = torch.tensor(evaluations, dtype=torch.float32)
+
+    # Squash evals to [-1, 1] range for better training stability
+    evals = torch.sigmoid(evals / 400) * 2 - 1
+
     print(f"Done. Processed {processed:,} rows.")
     return positions, evals
 

@@ -16,6 +16,7 @@ class BaseCNN(nn.Module):
         batchnorm: bool,
         linear_hidden_features: list[int],
         linear_out_features: int = 1,
+        final_tanh: bool = False,
     ):
         """Base CNN model for the project. It has the following architecture:
             - (Conv2d -> Activation -> (MaxPool2d)?) * N
@@ -82,7 +83,7 @@ class BaseCNN(nn.Module):
         # Calculate the number of features after the convolutional layers to determine the input size for the linear layer
         dummy_input = torch.zeros(1, in_channels, 8, 8)
         with torch.no_grad():
-            dummy_output = self.conv_layers(dummy_input)
+            dummy_output = self.flatten(self.conv_layers(dummy_input))
         linear_in_features = dummy_output.shape[1]
 
         head_layers = []
@@ -91,6 +92,9 @@ class BaseCNN(nn.Module):
             linear_in_features = feature_size
 
         head_layers.append(nn.Linear(linear_in_features, linear_out_features))
+        if final_tanh:
+            head_layers.append(nn.Tanh())
+
         self.head = nn.Sequential(*head_layers)
 
     def _get_param_count(self) -> int:

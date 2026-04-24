@@ -25,6 +25,7 @@ class GECNN(nn.Module):
         linear_hidden_features: list[int],
         linear_out_features: int = 1,
         group: str = "Z2",
+        final_tanh: bool = False,
     ):
         """Group-Equivariant CNN using escnn.
 
@@ -108,6 +109,8 @@ class GECNN(nn.Module):
             linear_in_features = hidden_feature
 
         linear_layers.append(nn.Linear(linear_in_features, linear_out_features))
+        if final_tanh:
+            linear_layers.append(nn.Tanh())
 
         self.head = nn.Sequential(*linear_layers)
 
