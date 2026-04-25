@@ -1,4 +1,16 @@
 services:
+  train:
+    build: .
+    image: chess-gecnn:latest
+    container_name: chess-gecnn-train
+    stdin_open: true
+    tty: true
+    
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["python3", "-m", "src.train"]
+
   train-basecnn:
     build: .
     image: chess-gecnn:latest

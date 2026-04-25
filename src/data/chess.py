@@ -179,7 +179,9 @@ def csv_to_position_eval_tensors(
         positions[i].copy_(fen_to_tensor(fen))
         print(f"Processed {i + 1:,}/{limit:,} rows\t\t\t\t", end="\r")
 
-    evals = torch.from_numpy(dataset["eval_cp"].to_numpy(dtype="float32", copy=False))
+    evals = torch.from_numpy(dataset["eval_cp"].to_numpy(dtype="float32", copy=False))[
+        :limit
+    ]
 
     # Squash evals to [-1, 1] range for better training stability
     evals = torch.sigmoid(evals / 400) * 2 - 1
@@ -232,6 +234,15 @@ def load_chess_tensor_dataset(cfg: DictConfig) -> ChessPositionEvaluationDataset
     data = torch.load(dataset_path)
     positions = data["positions"]
     evaluations = data["evaluations"]
+
+    if len(positions) != len(evaluations):
+        min_len = min(len(positions), len(evaluations))
+        print(
+            f"Warning: tensor dataset length mismatch detected at {dataset_path}. "
+            f"Truncating to {min_len:,} samples."
+        )
+        positions = positions[:min_len]
+        evaluations = evaluations[:min_len]
 
     train_split = cfg.train_split
     train_end = int(len(positions) * train_split)

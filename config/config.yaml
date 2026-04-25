@@ -1,11 +1,11 @@
 defaults:
   - data: chess
   - train: default
-  - model: gecnn
+  - model: basecnn
   - _self_
 
 problem: chess
-mode: gecnn
+mode: basecnn
 seed: 42
 
 hydra:

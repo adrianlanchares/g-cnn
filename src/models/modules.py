@@ -53,12 +53,9 @@ class GECNNBlock(nn.Module):
     ):
         super().__init__()
 
-        in_type = enn.FieldType(
-            GSPACES[group](), in_channels * [GSPACES[group]().regular_repr]
-        )
-        out_type = enn.FieldType(
-            GSPACES[group](), out_channels * [GSPACES[group]().regular_repr]
-        )
+        gspace = GSPACES[group]()
+        in_type = enn.FieldType(gspace, in_channels * [gspace.regular_repr])
+        out_type = enn.FieldType(gspace, out_channels * [gspace.regular_repr])
 
         layers = [
             enn.R2Conv(

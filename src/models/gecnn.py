@@ -64,9 +64,8 @@ class GECNN(nn.Module):
                 f"Unknown group '{group}'. Choose from: {list(GSPACES.keys())}"
             )
 
-        self.in_type = enn.FieldType(
-            GSPACES[group](), in_channels * [GSPACES[group]().regular_repr]
-        )
+        gspace = GSPACES[group]()
+        self.in_type = enn.FieldType(gspace, in_channels * [gspace.regular_repr])
 
         blocks = []
 

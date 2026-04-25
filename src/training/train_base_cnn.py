@@ -32,7 +32,6 @@ def _train_one_epoch(
     for step, (positions, evaluations) in enumerate(dataloader):
         global_step = epoch * len(dataloader) + step
 
-        print(f"Step {step + 1}/{len(dataloader)}\t\t\t", end="\r")
         positions = positions.to(device)
         evaluations = evaluations.to(device)
 
