@@ -158,6 +158,7 @@ threadpoolctl==3.6.0
 tokenizers==0.22.2
 tomli==2.4.0
 torch==2.10.0
+torchvision==0.25.0
 tqdm==4.67.1
 tqdm-loggable==0.2
 transformers==4.57.6
