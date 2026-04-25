@@ -2,6 +2,7 @@ import csv
 import hashlib
 from pathlib import Path
 
+import pandas as pd
 import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
@@ -156,34 +157,34 @@ def fen_to_tensor(fen: str) -> torch.Tensor:
     return tensor
 
 
-def csv_to_position_eval_tensors(csv_path: str) -> tuple[torch.Tensor, torch.Tensor]:
+def csv_to_position_eval_tensors(
+    csv_path: str, max_rows: int
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Read FEN/eval CSV and return tensors: positions [N,12,8,8], evals [N]."""
-    position_tensors = []
-    evaluations = []
-    processed = 0
-
-    with open(csv_path, "r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            fen = row["fen"]
-            eval_cp = float(row["eval_cp"])
-
-            position_tensors.append(fen_to_tensor(fen))
-            evaluations.append(eval_cp)
-            processed += 1
-
-            print(f"processed={processed:,}\t\t\t", end="\r")
-
-    if not position_tensors:
+    print(f"Loading CSV from {csv_path}...")
+    dataset = pd.read_csv(csv_path, usecols=["fen", "eval_cp"])
+    print(f"Loaded {len(dataset):,} rows from CSV.")
+    if dataset.empty:
         raise ValueError(f"No rows found in CSV: {csv_path}")
 
-    positions = torch.stack(position_tensors, dim=0)
-    evals = torch.tensor(evaluations, dtype=torch.float32)
+    num_rows = len(dataset)
+    limit = min(num_rows, max_rows)
+
+    positions = torch.empty((limit, 12, 8, 8), dtype=torch.float32)
+    fens = dataset["fen"].to_numpy()
+
+    for i, fen in enumerate(fens):
+        if i >= limit:
+            break
+        positions[i].copy_(fen_to_tensor(fen))
+        print(f"Processed {i + 1:,}/{limit:,} rows\t\t\t\t", end="\r")
+
+    evals = torch.from_numpy(dataset["eval_cp"].to_numpy(dtype="float32", copy=False))
 
     # Squash evals to [-1, 1] range for better training stability
     evals = torch.sigmoid(evals / 400) * 2 - 1
 
-    print(f"Done. Processed {processed:,} rows.")
+    print(f"Done. Processed {limit:,} rows.")
     return positions, evals
 
 
@@ -198,7 +199,9 @@ def build_and_save_tensor_dataset(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    positions, evaluations = csv_to_position_eval_tensors(str(Path(cfg.output_csv)))
+    positions, evaluations = csv_to_position_eval_tensors(
+        str(Path(cfg.output_csv)), cfg.max_rows
+    )
 
     dataset = {
         "positions": positions,

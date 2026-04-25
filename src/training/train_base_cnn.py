@@ -79,7 +79,7 @@ def evaluate(
 
 def train_base_cnn(
     cfg: DictConfig,
-):
+) -> None:
     """Train the BaseCNN model on the chess dataset."""
 
     data_config = cfg.data

@@ -8,7 +8,7 @@ output_tensor_dataset: ${.data_dir}/chess_positions.pt
 keep_all_fens: true
 hash_mod: 10000000000
 hash_keep_below: 1000000000
-max_rows: 10000000
+max_rows: 1_000_000
 
 clip_cp: 1000
 mate_value: 2000

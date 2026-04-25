@@ -20,7 +20,9 @@ def _sample_basecnn_params(trial: optuna.Trial) -> dict:
     hidden_channels = []
     for i in range(num_conv_layers):
         hidden_channels.append(
-            trial.suggest_int(f"hidden_channels_{i}", 16, 256, log=True)
+            trial.suggest_categorical(
+                f"hidden_channels_{i}", [16, 32, 64, 128, 256, 512]
+            )
         )
 
     kernel_sizes = [3] * num_conv_layers
@@ -31,7 +33,52 @@ def _sample_basecnn_params(trial: optuna.Trial) -> dict:
     linear_hidden_features = []
     for i in range(num_linear_layers):
         linear_hidden_features.append(
-            trial.suggest_int(f"linear_hidden_features_{i}", 16, 512, log=True)
+            trial.suggest_categorical(
+                f"linear_hidden_features_{i}", [64, 128, 256, 512]
+            )
+        )
+
+    learning_rate = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
+    batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
+
+    use_batchnorm = trial.suggest_categorical("use_batch_norm", [True, False])
+
+    return {
+        "model.hidden_channels": hidden_channels,
+        "model.kernel_sizes": kernel_sizes,
+        "model.strides": strides,
+        "model.padding": padding,
+        "model.linear_hidden_features": linear_hidden_features,
+        "train.lr": learning_rate,
+        "train.batch_size": batch_size,
+        "model.batchnorm": use_batchnorm,
+    }
+
+
+def sample_gecnn_params(trial: optuna.Trial) -> dict:
+    """Sample hyperparameters for the GECNN model."""
+
+    # Model architecture parameters
+    num_conv_layers = trial.suggest_int("num_conv_layers", 2, 5)
+    hidden_channels = []
+    for i in range(num_conv_layers):
+        hidden_channels.append(
+            trial.suggest_categorical(
+                f"hidden_channels_{i}", [16, 32, 64, 128, 256, 512]
+            )
+        )
+
+    kernel_sizes = [3] * num_conv_layers
+    strides = [1] * num_conv_layers
+    padding = [1] * num_conv_layers
+
+    num_linear_layers = trial.suggest_int("num_linear_layers", 1, 3)
+    linear_hidden_features = []
+    for i in range(num_linear_layers):
+        linear_hidden_features.append(
+            trial.suggest_categorical(
+                f"linear_hidden_features_{i}", [64, 128, 256, 512]
+            )
         )
 
     learning_rate = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
@@ -55,7 +102,7 @@ def sample_params(mode: str, trial: optuna.Trial) -> dict:
     """Sample hyperparameters based on the specified mode."""
     samplers = {
         "base_cnn": _sample_basecnn_params,
-        # Future modes can be added here
+        "gecnn": sample_gecnn_params,
     }
 
     if mode not in samplers:
@@ -93,6 +140,7 @@ def _build_trial_command(
         "src.train",
         f"problem={args.problem}",
         f"mode={args.mode}",
+        f"model={args.model if args.model is not None else args.mode}",
         f"seed={args.seed + trial.number}",
         f"hydra.run.dir={trial_dir.as_posix()}",
     ]
@@ -173,6 +221,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="base_cnn",
         help="Mode for sampling hyperparameters (e.g., 'base_cnn')",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Hydra model config override for training (e.g., 'gecnn'); defaults to --mode",
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="Base random seed for reproducibility"

@@ -1,16 +1,28 @@
 services:
-  train:
+  train-basecnn:
     build: .
     image: chess-gecnn:latest
-    container_name: chess-gecnn-train
+    container_name: chess-gecnn-train-basecnn
     stdin_open: true
     tty: true
     
     volumes:
       - .:/app
     working_dir: /app
-    # command: ["python3", "-m", "src.optuna", "--study-name", "chess-basecnn-3"]
-    command: ["python3", "-m", "src.train"]
+    command: ["python3", "-m", "src.optuna", "--study-name", "chess-basecnn-1"]
+
+
+  train-gecnn:
+    build: .
+    image: chess-gecnn:latest
+    container_name: chess-gecnn-train-gecnn
+    stdin_open: true
+    tty: true
+    
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["python3", "-m", "src.optuna", "--study-name", "chess-gecnn"]
 
   tensorboard:
     build: .
@@ -20,10 +32,10 @@ services:
     tty: true
     volumes:
       - .:/app
+    working_dir: /app
     ports:
       - "6067:6006"
-    working_dir: /app
-    command: ["tensorboard", "--logdir", "logs", "--host", "0.0.0.0"]
+    command: ["tensorboard", "--logdir", "outputs/optuna", "--host", "0.0.0.0"]
 
   optuna-dashboard:
     build: .
@@ -31,6 +43,9 @@ services:
     container_name: chess-gecnn-optuna-dashboard
     stdin_open: true
     tty: true
+    volumes:
+      - .:/app
+    working_dir: /app
     ports:
-      - "8080:8080"
-    command: ["optuna-dashboard", "sqlite:///optuna_study.db", "--host", "0.0.0.0"]
+      - "8067:8080"
+    command: ["optuna-dashboard", "sqlite:///study.db", "--host", "0.0.0.0", "--port", "8080"]

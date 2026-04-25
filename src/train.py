@@ -1,10 +1,11 @@
 import hydra
 from omegaconf import DictConfig
 
-from src.training.train_base_cnn import train_base_cnn
+from src.training import train_base_cnn, train_gecnn
 
 _TRAINERS = {
     "base_cnn": train_base_cnn,
+    "gecnn": train_gecnn,
 }
 
 
