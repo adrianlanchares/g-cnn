@@ -78,13 +78,10 @@ class BaseCNN(nn.Module):
 
         self.conv_layers = nn.Sequential(*layers)
 
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.flatten = nn.Flatten()
 
-        # Calculate the number of features after the convolutional layers to determine the input size for the linear layer
-        dummy_input = torch.zeros(1, in_channels, 8, 8)
-        with torch.no_grad():
-            dummy_output = self.flatten(self.conv_layers(dummy_input))
-        linear_in_features: int = int(dummy_output.shape[1])
+        linear_in_features: int = out_channels
 
         head_layers: list[nn.Module] = []
         for feature_size in linear_hidden_features:
@@ -102,6 +99,7 @@ class BaseCNN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv_layers(x)
+        x = self.pool(x)
         x = self.flatten(x)
         x = self.head(x)
         return x
