@@ -121,7 +121,7 @@ class CNNBlock(nn.Module):
         batchnorm: bool = False,
     ):
         super().__init__()
-        layers = [
+        layers: list[nn.Module] = [
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=out_channels,
@@ -183,7 +183,9 @@ class LiftingConv2d(nn.Module):
             all_transforms = rotated.unsqueeze(0)
         else:
             mirrored = torch.flip(weight, dims=(-1,))
-            mirrored_rotated = _stack_rotations(mirrored, self.group_spec.rotation_order)
+            mirrored_rotated = _stack_rotations(
+                mirrored, self.group_spec.rotation_order
+            )
             all_transforms = torch.stack((rotated, mirrored_rotated), dim=0)
 
         return all_transforms[self._mirror_indices, self._rotation_indices]
@@ -248,7 +250,10 @@ class GroupConv2d(nn.Module):
         )
         relative_indices = torch.tensor(
             [
-                [self.group_spec.relative_index(g_out, g_in) for g_in in range(self.group_order)]
+                [
+                    self.group_spec.relative_index(g_out, g_in)
+                    for g_in in range(self.group_order)
+                ]
                 for g_out in range(self.group_order)
             ],
             dtype=torch.long,
@@ -276,7 +281,9 @@ class GroupConv2d(nn.Module):
             all_transforms = rotated.unsqueeze(0)
         else:
             mirrored = torch.flip(weight, dims=(-1,))
-            mirrored_rotated = _stack_rotations(mirrored, self.group_spec.rotation_order)
+            mirrored_rotated = _stack_rotations(
+                mirrored, self.group_spec.rotation_order
+            )
             all_transforms = torch.stack((rotated, mirrored_rotated), dim=0)
 
         return all_transforms[self._mirror_indices, self._rotation_indices]
