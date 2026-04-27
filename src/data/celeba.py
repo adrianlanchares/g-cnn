@@ -78,8 +78,8 @@ def prepare_celeba_dataset(cfg: DictConfig):
 
 def load_celeba_datasets(
     cfg: DictConfig,
-) -> tuple[CelebADataset, CelebADataset, CelebADataset]:
-    """Return train/valid/test torch datasets for CelebA."""
+) -> tuple[CelebADataset, CelebADataset] | tuple[CelebADataset, CelebADataset, CelebADataset]:
+    """Return train/test or train/valid/test torch datasets for CelebA."""
     train_base, valid_base, test_base = _build_raw_celeba_datasets(cfg)
 
     target_attr_idx = _resolve_target_attr_index(
@@ -87,12 +87,19 @@ def load_celeba_datasets(
     )
 
     train_dataset = CelebADataset(train_base, target_attr_idx)
-    valid_dataset = CelebADataset(valid_base, target_attr_idx)
     test_dataset = CelebADataset(test_base, target_attr_idx)
+
+    do_validation = bool(getattr(cfg, "do_validation", False))
+    if do_validation:
+        valid_dataset = CelebADataset(valid_base, target_attr_idx)
+        print(
+            "Loaded CelebA datasets with sizes "
+            f"train={len(train_dataset):,}, valid={len(valid_dataset):,}, test={len(test_dataset):,}."
+        )
+        return train_dataset, valid_dataset, test_dataset
 
     print(
         "Loaded CelebA datasets with sizes "
-        f"train={len(train_dataset):,}, valid={len(valid_dataset):,}, test={len(test_dataset):,}."
+        f"train={len(train_dataset):,}, test={len(test_dataset):,}."
     )
-
-    return train_dataset, valid_dataset, test_dataset
+    return train_dataset, test_dataset

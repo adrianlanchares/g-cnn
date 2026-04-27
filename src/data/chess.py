@@ -225,8 +225,8 @@ def prepare_chess_dataset(cfg: DictConfig):
     return
 
 
-def load_chess_tensor_dataset(cfg: DictConfig) -> ChessPositionEvaluationDataset:
-    """Load the processed tensor dataset from disk and return a PyTorch Dataset."""
+def load_chess_tensor_dataset(cfg: DictConfig):
+    """Load processed tensor dataset and return train/test or train/valid/test splits."""
     dataset_path = Path(cfg.output_tensor_dataset)
     if not dataset_path.is_file():
         prepare_chess_dataset(cfg)
@@ -244,20 +244,46 @@ def load_chess_tensor_dataset(cfg: DictConfig) -> ChessPositionEvaluationDataset
         positions = positions[:min_len]
         evaluations = evaluations[:min_len]
 
-    train_split = cfg.train_split
-    train_end = int(len(positions) * train_split)
+    train_split = float(cfg.train_split)
+    if train_split <= 0.0 or train_split >= 1.0:
+        raise ValueError("train_split must be in (0, 1).")
+
+    do_validation = bool(getattr(cfg, "do_validation", False))
+    validation_split = float(getattr(cfg, "validation_split", 0.1))
+
+    if do_validation:
+        if validation_split <= 0.0 or validation_split >= 1.0:
+            raise ValueError("validation_split must be in (0, 1) when enabled.")
+        if train_split + validation_split >= 1.0:
+            raise ValueError(
+                "train_split + validation_split must be < 1 when do_validation is true."
+            )
+
+    total_len = len(positions)
+    train_end = int(total_len * train_split)
+    valid_end = int(total_len * (train_split + validation_split))
 
     train_positions = positions[:train_end]
     train_evals = evaluations[:train_end]
 
-    test_positions = positions[train_end:]
-    test_evals = evaluations[train_end:]
-
     train_dataset = ChessPositionEvaluationDataset(train_positions, train_evals)
-    test_dataset = ChessPositionEvaluationDataset(test_positions, test_evals)
 
     print(
         f"Loaded tensor dataset from {dataset_path} with positions shape "
         f"{tuple(positions.shape)} and evaluations shape {tuple(evaluations.shape)}."
     )
+
+    if do_validation:
+        valid_positions = positions[train_end:valid_end]
+        valid_evals = evaluations[train_end:valid_end]
+        test_positions = positions[valid_end:]
+        test_evals = evaluations[valid_end:]
+
+        valid_dataset = ChessPositionEvaluationDataset(valid_positions, valid_evals)
+        test_dataset = ChessPositionEvaluationDataset(test_positions, test_evals)
+        return train_dataset, valid_dataset, test_dataset
+
+    test_positions = positions[train_end:]
+    test_evals = evaluations[train_end:]
+    test_dataset = ChessPositionEvaluationDataset(test_positions, test_evals)
     return train_dataset, test_dataset

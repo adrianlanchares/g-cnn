@@ -16,3 +16,5 @@ mate_value: 2000
 dedup_fen: true
 
 train_split: 0.8
+do_validation: false
+validation_split: 0.1

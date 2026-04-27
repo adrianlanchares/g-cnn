@@ -6,8 +6,8 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from src.data.chess import load_chess_tensor_dataset
-from src.training.train_functions import evaluate, train_one_epoch
+from src.data.load_dataset import load_dataset
+from src.training.train_functions import evaluate, train_one_epoch, validate
 
 
 def train_base_cnn(
@@ -22,10 +22,20 @@ def train_base_cnn(
     print(f"Using device: {train_config.device}")
     device = torch.device(train_config.device)
 
-    # Load dataset
-    train_dataset, test_dataset = load_chess_tensor_dataset(data_config)
+    dataset_splits = load_dataset(data_config)
+    if len(dataset_splits) == 3:
+        train_dataset, valid_dataset, test_dataset = dataset_splits
+    else:
+        train_dataset, test_dataset = dataset_splits
+        valid_dataset = None
+
     train_dataloader = DataLoader(
         train_dataset, batch_size=train_config.batch_size, shuffle=True
+    )
+    valid_dataloader = (
+        DataLoader(valid_dataset, batch_size=train_config.batch_size, shuffle=False)
+        if valid_dataset is not None
+        else None
     )
     test_dataloader = DataLoader(
         test_dataset, batch_size=train_config.batch_size, shuffle=False
@@ -61,24 +71,52 @@ def train_base_cnn(
             epoch=epoch,
             writer=writer,
         )
-        eval_metrics = evaluate(
-            model=model,
-            loss_fn=loss_fn,
-            dataloader=test_dataloader,
-            device=device,
-        )
-        avg_eval_loss = eval_metrics["loss"]
+        if valid_dataloader is not None:
+            valid_metrics = validate(
+                model=model,
+                loss_fn=loss_fn,
+                dataloader=valid_dataloader,
+                device=device,
+            )
+            test_metrics = evaluate(
+                model=model,
+                loss_fn=loss_fn,
+                dataloader=test_dataloader,
+                device=device,
+            )
+            avg_eval_loss = valid_metrics["loss"]
+            avg_test_loss = test_metrics["loss"]
+        else:
+            eval_metrics = evaluate(
+                model=model,
+                loss_fn=loss_fn,
+                dataloader=test_dataloader,
+                device=device,
+            )
+            avg_eval_loss = eval_metrics["loss"]
+            avg_test_loss = None
 
         writer.add_scalar("train/avg_loss", avg_train_loss, epoch + 1)
         writer.add_scalar("eval/avg_loss", avg_eval_loss, epoch + 1)
+        if avg_test_loss is not None:
+            writer.add_scalar("test/avg_loss", avg_test_loss, epoch + 1)
         writer.add_scalar("train/epoch_time_sec", epoch_time_sec, epoch + 1)
 
-        print(
-            f"Epoch {epoch + 1}/{train_config.num_epochs}, "
-            f"Train Loss: {avg_train_loss:.4f}, "
-            f"Eval Loss: {avg_eval_loss:.4f}, "
-            f"Epoch Time: {epoch_time_sec:.2f}s, "
-        )
+        if avg_test_loss is not None:
+            print(
+                f"Epoch {epoch + 1}/{train_config.num_epochs}, "
+                f"Train Loss: {avg_train_loss:.4f}, "
+                f"Valid Loss: {avg_eval_loss:.4f}, "
+                f"Test Loss: {avg_test_loss:.4f}, "
+                f"Epoch Time: {epoch_time_sec:.2f}s"
+            )
+        else:
+            print(
+                f"Epoch {epoch + 1}/{train_config.num_epochs}, "
+                f"Train Loss: {avg_train_loss:.4f}, "
+                f"Eval Loss: {avg_eval_loss:.4f}, "
+                f"Epoch Time: {epoch_time_sec:.2f}s"
+            )
 
         if (epoch + 1) % train_config.save_checkpoint_every == 0:
             checkpoint_file = checkpoint_dir / f"checkpoint_epoch_{epoch + 1}.pt"
