@@ -1,10 +1,12 @@
 dataset_name: CelebA
 
-data_dir: ${hydra:runtime.cwd}/data/${..problem}
+data_dir: ${hydra:runtime.cwd}/data/celeba
 
 download: true
 target_type: attr
-target_attribute: None
+target_attribute: all
+
+num_attributes: 40
 
 image_size: 64
 normalize: true

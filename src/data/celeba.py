@@ -28,7 +28,7 @@ def _build_celeba_transform(cfg: DictConfig) -> transforms.Compose:
 def _resolve_target_attr_index(
     base_dataset: datasets.CelebA, target_type: str, target_attribute: str | None
 ) -> int | None:
-    if target_type != "attr" or target_attribute is None:
+    if target_type != "attr" or target_attribute is None or target_attribute == "all":
         return None
 
     if target_attribute not in base_dataset.attr_names:
@@ -79,9 +79,10 @@ def prepare_celeba_dataset(cfg: DictConfig) -> None:
 
 def load_celeba_datasets(
     cfg: DictConfig,
-) -> tuple[CelebADataset, CelebADataset] | tuple[
-    CelebADataset, CelebADataset, CelebADataset
-]:
+) -> (
+    tuple[CelebADataset, CelebADataset]
+    | tuple[CelebADataset, CelebADataset, CelebADataset]
+):
     """Return train/test or train/valid/test torch datasets for CelebA."""
     train_base, valid_base, test_base = _build_raw_celeba_datasets(cfg)
 

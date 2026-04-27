@@ -45,4 +45,8 @@ class CelebADataset(Dataset):
         if not torch.is_tensor(target):
             target = torch.as_tensor(target)
 
-        return image, target.float()
+        target = target.float()
+        if target.min().item() < 0:
+            target = (target + 1.0) / 2.0
+
+        return image, target

@@ -8,7 +8,12 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 
 from src.data.load_dataset import load_dataset
-from src.training.train_functions import evaluate, train_one_epoch, validate
+from src.training.train_functions import (
+    compute_pos_weight,
+    evaluate,
+    train_one_epoch,
+    validate,
+)
 
 
 def train_base_cnn(
@@ -45,7 +50,10 @@ def train_base_cnn(
     # Initialize model, loss function, and optimizer
     model: torch.nn.Module = instantiate(model_config).to(device)
 
-    if train_config.loss_fn == "MSELoss":
+    if train_config.loss_fn == "BCEWithLogitsLoss":
+        pos_weight = compute_pos_weight(train_dataset).to(device)
+        loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    elif train_config.loss_fn == "MSELoss":
         loss_fn = torch.nn.MSELoss()
     elif train_config.loss_fn == "CrossEntropyLoss":
         loss_fn = torch.nn.CrossEntropyLoss()

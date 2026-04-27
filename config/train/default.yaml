@@ -1,10 +1,10 @@
-device: cuda
+device: mps
 
 num_epochs: 10
 batch_size: 64
 
 lr: 0.001
-loss_fn: MSELoss
+loss_fn: BCEWithLogitsLoss
 
 save_checkpoint_every: 20
 checkpoint_path: ${hydra:runtime.output_dir}/checkpoints

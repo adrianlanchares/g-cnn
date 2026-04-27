@@ -3,11 +3,37 @@ from collections.abc import Callable
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 
 
 BatchMetricsFn = Callable[[nn.Module, torch.Tensor, torch.Tensor], dict[str, float]]
+
+
+def compute_pos_weight(dataset: Dataset) -> torch.Tensor:
+    labels: torch.Tensor | None = None
+
+    if hasattr(dataset, "base_dataset") and hasattr(dataset.base_dataset, "attr"):
+        labels = dataset.base_dataset.attr
+        if hasattr(dataset, "target_attr_idx") and dataset.target_attr_idx is not None:
+            labels = labels[:, dataset.target_attr_idx]
+
+    if labels is None:
+        targets: list[torch.Tensor] = []
+        for _, target in dataset:
+            targets.append(target)
+        labels = torch.stack(targets, dim=0)
+
+    labels = labels.float()
+    if labels.min().item() < 0:
+        labels = (labels + 1.0) / 2.0
+
+    if labels.ndim == 1:
+        labels = labels.unsqueeze(1)
+
+    pos = labels.sum(dim=0)
+    neg = labels.shape[0] - pos
+    return neg / (pos + 1e-6)
 
 
 def train_one_epoch(
@@ -31,7 +57,7 @@ def train_one_epoch(
         evaluations = evaluations.to(device)
 
         outputs = model(positions)
-        loss = loss_fn(outputs.squeeze(), evaluations)
+        loss = loss_fn(outputs, evaluations)
 
         batch_size = positions.shape[0]
         total_samples += batch_size
@@ -67,7 +93,7 @@ def validate(
             evaluations = evaluations.to(device)
 
             outputs = model(positions)
-            loss = loss_fn(outputs.squeeze(), evaluations)
+            loss = loss_fn(outputs, evaluations)
 
             batch_size = positions.shape[0]
             total_samples += batch_size

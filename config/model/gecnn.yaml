@@ -1,6 +1,6 @@
 _target_: src.models.gecnn.GECNN
 
-in_channels: 12
+in_channels: 3
 out_channels: 128
 
 hidden_channels: [32, 32, 64, 128, 128]
@@ -11,7 +11,7 @@ padding: [1, 1, 1, 1, 1]
 batchnorm: true
 
 linear_hidden_features: [256, 128, 64]
-linear_out_features: 1
+linear_out_features: ${data.num_attributes}
 group: Z2
 
-final_tanh: true
+final_tanh: false
