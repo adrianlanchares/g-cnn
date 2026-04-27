@@ -47,7 +47,7 @@ services:
     working_dir: /app
     ports:
       - "6067:6006"
-    command: ["tensorboard", "--logdir", "outputs/optuna", "--host", "0.0.0.0"]
+    command: ["tensorboard", "--logdir", "outputs", "--host", "0.0.0.0"]
 
   optuna-dashboard:
     build: .
