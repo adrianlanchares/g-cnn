@@ -1,15 +1,7 @@
 import torch
 import torch.nn as nn
-from escnn import gspaces
-from escnn import nn as enn
 
-from src.models.modules import GECNNBlock, MLPBlock
-
-GSPACES = {
-    "Z2": lambda: gspaces.flip2dOnR2(),  # reflection only,  group size 2
-    "p4": lambda: gspaces.rot2dOnR2(N=4),  # 4 rotations,      group size 4
-    "p4m": lambda: gspaces.flipRot2dOnR2(N=4),  # rotations+flips,  group size 8
-}
+from src.models.modules import GECNNBlock, GECNNLiftBlock, MLPBlock, get_group_spec
 
 
 class GECNN(nn.Module):
@@ -27,18 +19,18 @@ class GECNN(nn.Module):
         group: str = "Z2",
         final_tanh: bool = False,
     ):
-        """Group-Equivariant CNN using escnn.
+        """Group-Equivariant CNN implemented with native PyTorch.
 
-        Architecture mirrors BaseCNN exactly:
-            - (R2Conv -> Activation -> (PointwiseMaxPool)?) * N
-            - R2Conv (1x1 projection)
-            - GroupPooling (invariant aggregation over group dimension)
-            - AdaptiveAvgPool2d(1,1)
+        Architecture mirrors BaseCNN:
+            - LiftingConv2d -> Activation
+            - (GroupConv2d -> Activation) * N
+            - GroupConv2d projection
+            - Mean pooling over group and spatial dimensions
             - Flatten
             - Linear
 
-        The group is controlled by cfg.group. Feature maps are GeometricTensors
-        carrying both data and transformation behaviour under the group.
+        The group is controlled by cfg.group. Internally, the tensor shape is
+        [B, C, |G|, H, W], where |G| is the group order.
 
         Args:
             in_channels: Number of input channels.
@@ -51,7 +43,7 @@ class GECNN(nn.Module):
 
         Raises:
             ValueError: If hidden_channels and kernel_sizes have different lengths.
-            ValueError: If cfg.group is not one of: Z2, p4, p4m.
+            ValueError: If group is not one of: Z2, p4, p4m.
         """
         super().__init__()
 
@@ -59,22 +51,35 @@ class GECNN(nn.Module):
             raise ValueError(
                 "Length of hidden_channels and kernel_sizes must be the same."
             )
-        if group not in GSPACES:
-            raise ValueError(
-                f"Unknown group '{group}'. Choose from: {list(GSPACES.keys())}"
+        get_group_spec(group)
+
+        layers = []
+        current_in_channels = in_channels
+
+        first_hidden = hidden_channels[0] if hidden_channels else out_channels
+        first_kernel = kernel_sizes[0] if kernel_sizes else 3
+        first_stride = strides[0] if strides else 1
+        first_padding = padding[0] if padding else 1
+
+        layers.append(
+            GECNNLiftBlock(
+                in_channels=current_in_channels,
+                out_channels=first_hidden,
+                kernel_size=first_kernel,
+                stride=first_stride,
+                padding=first_padding,
+                group=group,
+                batchnorm=batchnorm,
             )
-
-        gspace = GSPACES[group]()
-        self.in_type = enn.FieldType(gspace, in_channels * [gspace.regular_repr])
-
-        blocks = []
+        )
+        current_in_channels = first_hidden
 
         for hidden_channel, kernel_size, stride, pad in zip(
-            hidden_channels, kernel_sizes, strides, padding
+            hidden_channels[1:], kernel_sizes[1:], strides[1:], padding[1:]
         ):
-            blocks.append(
+            layers.append(
                 GECNNBlock(
-                    in_channels=in_channels,
+                    in_channels=current_in_channels,
                     out_channels=hidden_channel,
                     kernel_size=kernel_size,
                     stride=stride,
@@ -83,22 +88,23 @@ class GECNN(nn.Module):
                     batchnorm=batchnorm,
                 )
             )
-            in_channels = hidden_channel  # for next layer
+            current_in_channels = hidden_channel
 
-        blocks.append(
+        layers.append(
             GECNNBlock(
-                in_channels=in_channels,
+                in_channels=current_in_channels,
                 out_channels=out_channels,
                 kernel_size=3,
                 stride=1,
-                padding=0,
+                padding=1,
                 group=group,
             )
         )
 
-        self.eq_layers = enn.SequentialModule(*blocks)
+        self.eq_layers = nn.Sequential(*layers)
 
-        self.flatten = nn.Flatten()
+        self.invariant_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.flatten = nn.Flatten(start_dim=1)
 
         # Calculate the number of features after the convolutional layers to determine the input size for the linear layer
         linear_in_features = out_channels
@@ -117,11 +123,11 @@ class GECNN(nn.Module):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # wrap input tensor into a GeometricTensor so escnn can track transformations
-        x = enn.GeometricTensor(x, self.in_type)
-
         x = self.eq_layers(x)
-        x = x.tensor
+
+        # invariant pooling over group dimension
+        x = x.mean(dim=2)
+        x = self.invariant_pool(x)
 
         x = self.flatten(x)
         x = self.head(x)
