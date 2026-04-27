@@ -1,4 +1,3 @@
-import time
 from pathlib import Path
 
 import torch
@@ -8,72 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from src.data.chess import load_chess_tensor_dataset
-from src.models.base_cnn import BaseCNN
-
-
-def _train_one_epoch(
-    model: BaseCNN,
-    loss_fn: torch.nn.Module,
-    optimizer: torch.optim.Optimizer,
-    dataloader: DataLoader,
-    device: torch.device,
-    epoch: int,
-    writer: SummaryWriter,
-):
-    """Train the model for one epoch on the given dataset."""
-    model.train()
-    total_loss = 0.0
-    epoch_start_time = time.perf_counter()
-    is_cuda = device.type == "cuda" and torch.cuda.is_available()
-
-    if is_cuda:
-        torch.cuda.reset_peak_memory_stats(device)
-
-    for step, (positions, evaluations) in enumerate(dataloader):
-        global_step = epoch * len(dataloader) + step
-
-        positions = positions.to(device)
-        evaluations = evaluations.to(device)
-
-        outputs = model(positions)
-        loss = loss_fn(outputs.squeeze(), evaluations)
-        total_loss += loss.item()
-
-        writer.add_scalar("train/step_loss", loss.item(), global_step)
-
-        optimizer.zero_grad()
-        loss.backward()
-
-        optimizer.step()
-
-        current_lr = optimizer.param_groups[0]["lr"]
-        writer.add_scalar("train/lr", current_lr, global_step)
-
-    epoch_time_sec = time.perf_counter() - epoch_start_time
-
-    return total_loss / len(dataloader), epoch_time_sec
-
-
-def evaluate(
-    model: BaseCNN,
-    loss_fn: torch.nn.Module,
-    dataloader: DataLoader,
-    device: torch.device,
-):
-    """Evaluate the model on the given dataset."""
-    model.eval()
-    total_loss = 0.0
-
-    with torch.no_grad():
-        for positions, evaluations in dataloader:
-            positions = positions.to(device)
-            evaluations = evaluations.to(device)
-
-            outputs = model(positions)
-            loss = loss_fn(outputs.squeeze(), evaluations)
-            total_loss += loss.item()
-
-    return total_loss / len(dataloader)
+from src.training.train_functions import evaluate, train_one_epoch
 
 
 def train_base_cnn(
@@ -118,10 +52,22 @@ def train_base_cnn(
 
     # Train for a few epochs
     for epoch in range(train_config.num_epochs):
-        avg_train_loss, epoch_time_sec = _train_one_epoch(
-            model, loss_fn, optimizer, train_dataloader, device, epoch, writer
+        avg_train_loss, epoch_time_sec = train_one_epoch(
+            model=model,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            dataloader=train_dataloader,
+            device=device,
+            epoch=epoch,
+            writer=writer,
         )
-        avg_eval_loss = evaluate(model, loss_fn, test_dataloader, device)
+        eval_metrics = evaluate(
+            model=model,
+            loss_fn=loss_fn,
+            dataloader=test_dataloader,
+            device=device,
+        )
+        avg_eval_loss = eval_metrics["loss"]
 
         writer.add_scalar("train/avg_loss", avg_train_loss, epoch + 1)
         writer.add_scalar("eval/avg_loss", avg_eval_loss, epoch + 1)
