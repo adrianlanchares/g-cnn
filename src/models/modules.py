@@ -18,6 +18,22 @@ def _apply_spatial_transform(
     return transformed
 
 
+def _stack_rotations(tensor: torch.Tensor, rotation_order: int) -> torch.Tensor:
+    if rotation_order == 1:
+        return tensor.unsqueeze(0)
+    if rotation_order == 4:
+        return torch.stack(
+            (
+                tensor,
+                torch.rot90(tensor, k=1, dims=(-2, -1)),
+                torch.rot90(tensor, k=2, dims=(-2, -1)),
+                torch.rot90(tensor, k=3, dims=(-2, -1)),
+            ),
+            dim=0,
+        )
+    raise ValueError(f"Unsupported rotation order: {rotation_order}")
+
+
 class GroupSpec:
     def __init__(self, rotation_order: int, include_reflections: bool):
         if rotation_order < 1:
@@ -139,8 +155,20 @@ class LiftingConv2d(nn.Module):
         super().__init__()
 
         self.group_spec = get_group_spec(group)
+        self.group_order = self.group_spec.order
         self.stride = stride
         self.padding = padding
+
+        rotation_indices = torch.tensor(
+            [rotation for rotation, _ in self.group_spec.elements],
+            dtype=torch.long,
+        )
+        mirror_indices = torch.tensor(
+            [mirror for _, mirror in self.group_spec.elements],
+            dtype=torch.long,
+        )
+        self.register_buffer("_rotation_indices", rotation_indices, persistent=False)
+        self.register_buffer("_mirror_indices", mirror_indices, persistent=False)
 
         self.weight = nn.Parameter(
             torch.empty(out_channels, in_channels, kernel_size, kernel_size)
@@ -149,22 +177,44 @@ class LiftingConv2d(nn.Module):
 
         nn.init.kaiming_uniform_(self.weight, a=5**0.5)
 
+    def _transform_all_weights(self, weight: torch.Tensor) -> torch.Tensor:
+        rotated = _stack_rotations(weight, self.group_spec.rotation_order)
+        if self.group_spec.elements[-1][1] == 0:
+            all_transforms = rotated.unsqueeze(0)
+        else:
+            mirrored = torch.flip(weight, dims=(-1,))
+            mirrored_rotated = _stack_rotations(mirrored, self.group_spec.rotation_order)
+            all_transforms = torch.stack((rotated, mirrored_rotated), dim=0)
+
+        return all_transforms[self._mirror_indices, self._rotation_indices]
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        output_per_group_element = []
+        batch_size = x.shape[0]
 
-        for group_idx in range(self.group_spec.order):
-            transformed_weight = self.group_spec.transform_spatial(self.weight, group_idx)
-            output_per_group_element.append(
-                F.conv2d(
-                    x,
-                    transformed_weight,
-                    bias=None,
-                    stride=self.stride,
-                    padding=self.padding,
-                )
-            )
+        transformed_weight = self._transform_all_weights(self.weight)
+        transformed_weight = transformed_weight.reshape(
+            self.group_order * transformed_weight.shape[1],
+            transformed_weight.shape[2],
+            transformed_weight.shape[3],
+            transformed_weight.shape[4],
+        )
 
-        output = torch.stack(output_per_group_element, dim=2)
+        output = F.conv2d(
+            x,
+            transformed_weight,
+            bias=None,
+            stride=self.stride,
+            padding=self.padding,
+        )
+
+        output = output.view(
+            batch_size,
+            self.group_order,
+            self.weight.shape[0],
+            output.shape[-2],
+            output.shape[-1],
+        ).permute(0, 2, 1, 3, 4)
+
         if self.bias is not None:
             output = output + self.bias.view(1, -1, 1, 1, 1)
         return output
@@ -184,8 +234,28 @@ class GroupConv2d(nn.Module):
         super().__init__()
 
         self.group_spec = get_group_spec(group)
+        self.group_order = self.group_spec.order
         self.stride = stride
         self.padding = padding
+
+        rotation_indices = torch.tensor(
+            [rotation for rotation, _ in self.group_spec.elements],
+            dtype=torch.long,
+        )
+        mirror_indices = torch.tensor(
+            [mirror for _, mirror in self.group_spec.elements],
+            dtype=torch.long,
+        )
+        relative_indices = torch.tensor(
+            [
+                [self.group_spec.relative_index(g_out, g_in) for g_in in range(self.group_order)]
+                for g_out in range(self.group_order)
+            ],
+            dtype=torch.long,
+        )
+        self.register_buffer("_rotation_indices", rotation_indices, persistent=False)
+        self.register_buffer("_mirror_indices", mirror_indices, persistent=False)
+        self.register_buffer("_relative_indices", relative_indices, persistent=False)
 
         self.weight = nn.Parameter(
             torch.empty(
@@ -200,43 +270,84 @@ class GroupConv2d(nn.Module):
 
         nn.init.kaiming_uniform_(self.weight, a=5**0.5)
 
+    def _transform_all_weights(self, weight: torch.Tensor) -> torch.Tensor:
+        rotated = _stack_rotations(weight, self.group_spec.rotation_order)
+        if self.group_spec.elements[-1][1] == 0:
+            all_transforms = rotated.unsqueeze(0)
+        else:
+            mirrored = torch.flip(weight, dims=(-1,))
+            mirrored_rotated = _stack_rotations(mirrored, self.group_spec.rotation_order)
+            all_transforms = torch.stack((rotated, mirrored_rotated), dim=0)
+
+        return all_transforms[self._mirror_indices, self._rotation_indices]
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         _, _, input_group_size, _, _ = x.shape
-        if input_group_size != self.group_spec.order:
+        if input_group_size != self.group_order:
             raise ValueError(
                 "Input group dimension does not match configured group order: "
-                f"expected {self.group_spec.order}, got {input_group_size}."
+                f"expected {self.group_order}, got {input_group_size}."
             )
 
-        output_per_group_element = []
+        batch_size, in_channels, _, height, width = x.shape
+        out_channels = self.weight.shape[0]
 
-        for output_group_idx in range(self.group_spec.order):
-            transformed_weight = self.group_spec.transform_spatial(
-                self.weight,
-                output_group_idx,
-            )
+        transformed_weight = self._transform_all_weights(self.weight)
+        gather_index = self._relative_indices.view(
+            self.group_order,
+            1,
+            1,
+            self.group_order,
+            1,
+            1,
+        ).expand(
+            self.group_order,
+            out_channels,
+            in_channels,
+            self.group_order,
+            self.weight.shape[-2],
+            self.weight.shape[-1],
+        )
 
-            output = None
-            for input_group_idx in range(self.group_spec.order):
-                relative_idx = self.group_spec.relative_index(
-                    output_group_idx,
-                    input_group_idx,
-                )
-                current = F.conv2d(
-                    x[:, :, input_group_idx],
-                    transformed_weight[:, :, relative_idx],
-                    bias=None,
-                    stride=self.stride,
-                    padding=self.padding,
-                )
-                output = current if output is None else output + current
+        transformed_weight = torch.gather(
+            transformed_weight,
+            dim=3,
+            index=gather_index,
+        )
 
-            if self.bias is not None:
-                output = output + self.bias.view(1, -1, 1, 1)
+        transformed_weight = transformed_weight.permute(0, 1, 3, 2, 4, 5).reshape(
+            self.group_order * out_channels,
+            self.group_order * in_channels,
+            self.weight.shape[-2],
+            self.weight.shape[-1],
+        )
 
-            output_per_group_element.append(output)
+        x = x.permute(0, 2, 1, 3, 4).reshape(
+            batch_size,
+            self.group_order * in_channels,
+            height,
+            width,
+        )
 
-        return torch.stack(output_per_group_element, dim=2)
+        bias = None
+        if self.bias is not None:
+            bias = self.bias.repeat(self.group_order)
+
+        output = F.conv2d(
+            x,
+            transformed_weight,
+            bias=bias,
+            stride=self.stride,
+            padding=self.padding,
+        )
+
+        return output.view(
+            batch_size,
+            self.group_order,
+            out_channels,
+            output.shape[-2],
+            output.shape[-1],
+        ).permute(0, 2, 1, 3, 4)
 
 
 class GroupBatchNorm(nn.Module):

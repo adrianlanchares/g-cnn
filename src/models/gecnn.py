@@ -51,7 +51,9 @@ class GECNN(nn.Module):
             raise ValueError(
                 "Length of hidden_channels and kernel_sizes must be the same."
             )
-        get_group_spec(group)
+        self.group = group
+        self.group_spec = get_group_spec(group)
+        self.group_order = self.group_spec.order
 
         layers = []
         current_in_channels = in_channels
