@@ -129,6 +129,7 @@ Pygments==2.19.2
 pymanopt==2.2.1
 PyPika==0.50.0
 pyproject_hooks==1.2.0
+pytest==8.4.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-multipart==0.0.21

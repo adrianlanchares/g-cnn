@@ -8,6 +8,7 @@ dependencies = [
     "omegaconf==2.3.0",
     "optuna==4.8.0",
     "pandas==2.3.3",
+    "pytest==8.4.1",
     "tensorboard==2.20.0",
     "torch==2.10.0",
     "torchvision==0.25.0",
