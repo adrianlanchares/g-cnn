@@ -21,7 +21,7 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    command: ["python3", "-m", "src.optuna", "--study-name", "chess-basecnn-1"]
+    command: ["python3", "-m", "src.train", "model=base_cnn", "mode=base_cnn"]
 
 
   train-gecnn:
