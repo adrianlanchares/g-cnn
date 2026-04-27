@@ -17,7 +17,7 @@ class BaseCNN(nn.Module):
         linear_hidden_features: list[int],
         linear_out_features: int = 1,
         final_tanh: bool = False,
-    ):
+    ) -> None:
         """Base CNN model for the project. It has the following architecture:
             - (Conv2d -> Activation -> (MaxPool2d)?) * N
             - Conv2d
@@ -48,8 +48,8 @@ class BaseCNN(nn.Module):
                 "Length of hidden_channels and kernel_sizes must be the same."
             )
 
-        layers = []
-        current_in_channels = in_channels
+        layers: list[nn.Module] = []
+        current_in_channels: int = in_channels
 
         for hidden_channel, kernel_size, stride, pad in zip(
             hidden_channels, kernel_sizes, strides, padding
@@ -84,9 +84,9 @@ class BaseCNN(nn.Module):
         dummy_input = torch.zeros(1, in_channels, 8, 8)
         with torch.no_grad():
             dummy_output = self.flatten(self.conv_layers(dummy_input))
-        linear_in_features = dummy_output.shape[1]
+        linear_in_features: int = int(dummy_output.shape[1])
 
-        head_layers = []
+        head_layers: list[nn.Module] = []
         for feature_size in linear_hidden_features:
             head_layers.append(MLPBlock(linear_in_features, feature_size))
             linear_in_features = feature_size

@@ -35,7 +35,7 @@ def _stack_rotations(tensor: torch.Tensor, rotation_order: int) -> torch.Tensor:
 
 
 class GroupSpec:
-    def __init__(self, rotation_order: int, include_reflections: bool):
+    def __init__(self, rotation_order: int, include_reflections: bool) -> None:
         if rotation_order < 1:
             raise ValueError("rotation_order must be >= 1")
 
@@ -119,7 +119,7 @@ class CNNBlock(nn.Module):
         stride: int,
         padding: int,
         batchnorm: bool = False,
-    ):
+    ) -> None:
         super().__init__()
         layers: list[nn.Module] = [
             nn.Conv2d(
@@ -137,7 +137,7 @@ class CNNBlock(nn.Module):
 
         self.block = nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.block(x)
 
 
@@ -151,7 +151,7 @@ class LiftingConv2d(nn.Module):
         padding: int,
         group: str,
         bias: bool = False,
-    ):
+    ) -> None:
         super().__init__()
 
         self.group_spec = get_group_spec(group)
@@ -232,7 +232,7 @@ class GroupConv2d(nn.Module):
         padding: int,
         group: str,
         bias: bool = False,
-    ):
+    ) -> None:
         super().__init__()
 
         self.group_spec = get_group_spec(group)
@@ -358,7 +358,7 @@ class GroupConv2d(nn.Module):
 
 
 class GroupBatchNorm(nn.Module):
-    def __init__(self, channels: int):
+    def __init__(self, channels: int) -> None:
         super().__init__()
         self.batch_norm = nn.BatchNorm3d(channels)
 
@@ -376,7 +376,7 @@ class GECNNLiftBlock(nn.Module):
         padding: int,
         group: str,
         batchnorm: bool = False,
-    ):
+    ) -> None:
         super().__init__()
 
         layers: list[nn.Module] = [
@@ -410,7 +410,7 @@ class GECNNBlock(nn.Module):
         padding: int,
         group: str,
         batchnorm: bool = False,
-    ):
+    ) -> None:
         super().__init__()
 
         layers: list[nn.Module] = [
@@ -441,10 +441,10 @@ class MLPBlock(nn.Module):
         in_features: int,
         out_features: int,
         activation: str = "relu",
-    ):
+    ) -> None:
         super().__init__()
 
-        layers = [nn.Linear(in_features, out_features)]
+        layers: list[nn.Module] = [nn.Linear(in_features, out_features)]
 
         if activation == "relu":
             layers.append(nn.ReLU())
@@ -455,5 +455,5 @@ class MLPBlock(nn.Module):
 
         self.block = nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.block(x)

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from omegaconf import DictConfig
 from torch.utils.data import Dataset
@@ -7,8 +8,8 @@ from torchvision import datasets, transforms
 from src.data.dataset import CelebADataset
 
 
-def _build_celeba_transform(cfg: DictConfig):
-    transform_steps = [
+def _build_celeba_transform(cfg: DictConfig) -> transforms.Compose:
+    transform_steps: list[Any] = [
         transforms.Resize((cfg.image_size, cfg.image_size)),
         transforms.ToTensor(),
     ]
@@ -70,7 +71,7 @@ def _build_raw_celeba_datasets(cfg: DictConfig) -> tuple[Dataset, Dataset, Datas
     return train_dataset, valid_dataset, test_dataset
 
 
-def prepare_celeba_dataset(cfg: DictConfig):
+def prepare_celeba_dataset(cfg: DictConfig) -> None:
     """Download CelebA (if needed) and validate config/attribute selection."""
     train_dataset, _, _ = _build_raw_celeba_datasets(cfg)
     _resolve_target_attr_index(train_dataset, cfg.target_type, cfg.target_attribute)
@@ -78,7 +79,9 @@ def prepare_celeba_dataset(cfg: DictConfig):
 
 def load_celeba_datasets(
     cfg: DictConfig,
-) -> tuple[CelebADataset, CelebADataset] | tuple[CelebADataset, CelebADataset, CelebADataset]:
+) -> tuple[CelebADataset, CelebADataset] | tuple[
+    CelebADataset, CelebADataset, CelebADataset
+]:
     """Return train/test or train/valid/test torch datasets for CelebA."""
     train_base, valid_base, test_base = _build_raw_celeba_datasets(cfg)
 

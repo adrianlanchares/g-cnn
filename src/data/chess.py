@@ -1,13 +1,15 @@
 import csv
 import hashlib
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
+from torch.utils.data import Dataset
 
-from src.data.dataset import ChessPositionEvaluationDataset
+from src.data.dataset import ChessDataset
 
 
 def stable_hash_int(text: str) -> int:
@@ -20,7 +22,7 @@ def keep_fen(fen: str, hash_mod: int, hash_keep_below: int) -> bool:
     return stable_hash_int(fen) % hash_mod < hash_keep_below
 
 
-def cp_from_row(row: dict, clip_cp: int, mate_value: int) -> int:
+def cp_from_row(row: dict[str, Any], clip_cp: int, mate_value: int) -> int:
     """
     Convert dataset row to a single numeric evaluation target.
     - If cp exists: clip it.
@@ -48,7 +50,7 @@ def cp_from_row(row: dict, clip_cp: int, mate_value: int) -> int:
     raise ValueError("Row has both cp=None and mate=None")
 
 
-def get_fen_eval_csv(cfg: DictConfig):
+def get_fen_eval_csv(cfg: DictConfig) -> None:
     output_csv = Path(cfg.output_csv)
 
     if output_csv.is_file():
@@ -60,13 +62,13 @@ def get_fen_eval_csv(cfg: DictConfig):
     # Streaming mode avoids downloading the whole dataset first.
     ds = load_dataset(cfg.dataset_name, split=cfg.dataset_split, streaming=True)
 
-    seen = set()
-    written = 0
-    processed = 0
+    seen: set[str] = set()
+    written: int = 0
+    processed: int = 0
 
     fieldnames = ["fen", "eval_cp"]
 
-    errors = 0
+    errors: int = 0
 
     with open(output_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -93,7 +95,7 @@ def get_fen_eval_csv(cfg: DictConfig):
                 errors += 1
                 continue
 
-            out = {
+            out: dict[str, str | int] = {
                 "fen": fen,
                 "eval_cp": eval_cp,
             }
@@ -107,12 +109,12 @@ def get_fen_eval_csv(cfg: DictConfig):
                 break
 
     print(f"Done. Wrote {written:,} rows to {output_csv}, with {errors} errors.")
-    return
+    return None
 
 
 def fen_to_tensor(fen: str) -> torch.Tensor:
     """Convert a FEN board into a one-hot tensor with shape [12, 8, 8]."""
-    piece_to_channel = {
+    piece_to_channel: dict[str, int] = {
         "P": 0,
         "N": 1,
         "B": 2,
@@ -190,9 +192,7 @@ def csv_to_position_eval_tensors(
     return positions, evals
 
 
-def build_and_save_tensor_dataset(
-    cfg: DictConfig,
-):
+def build_and_save_tensor_dataset(cfg: DictConfig) -> None:
     """Build tensors from the exported CSV and save them to disk."""
     output_path = Path(cfg.output_tensor_dataset)
     if output_path.is_file():
@@ -205,7 +205,7 @@ def build_and_save_tensor_dataset(
         str(Path(cfg.output_csv)), cfg.max_rows
     )
 
-    dataset = {
+    dataset: dict[str, torch.Tensor] = {
         "positions": positions,
         "evaluations": evaluations,
     }
@@ -214,24 +214,26 @@ def build_and_save_tensor_dataset(
         f"Saved tensor dataset to {output_path} with positions shape "
         f"{tuple(positions.shape)} and evaluations shape {tuple(evaluations.shape)}."
     )
-    return
+    return None
 
 
-def prepare_chess_dataset(cfg: DictConfig):
+def prepare_chess_dataset(cfg: DictConfig) -> None:
     """Full pipeline: export CSV from raw dataset, then build tensor dataset."""
     get_fen_eval_csv(cfg)
     build_and_save_tensor_dataset(cfg)
 
-    return
+    return None
 
 
-def load_chess_tensor_dataset(cfg: DictConfig):
+def load_chess_tensor_dataset(
+    cfg: DictConfig,
+) -> tuple[Dataset, Dataset] | tuple[Dataset, Dataset, Dataset]:
     """Load processed tensor dataset and return train/test or train/valid/test splits."""
     dataset_path = Path(cfg.output_tensor_dataset)
     if not dataset_path.is_file():
         prepare_chess_dataset(cfg)
 
-    data = torch.load(dataset_path)
+    data: dict[str, torch.Tensor] = torch.load(dataset_path)
     positions = data["positions"]
     evaluations = data["evaluations"]
 
@@ -248,8 +250,8 @@ def load_chess_tensor_dataset(cfg: DictConfig):
     if train_split <= 0.0 or train_split >= 1.0:
         raise ValueError("train_split must be in (0, 1).")
 
-    do_validation = bool(getattr(cfg, "do_validation", False))
-    validation_split = float(getattr(cfg, "validation_split", 0.1))
+    do_validation: bool = bool(getattr(cfg, "do_validation", False))
+    validation_split: float = float(getattr(cfg, "validation_split", 0.1))
 
     if do_validation:
         if validation_split <= 0.0 or validation_split >= 1.0:
@@ -266,7 +268,7 @@ def load_chess_tensor_dataset(cfg: DictConfig):
     train_positions = positions[:train_end]
     train_evals = evaluations[:train_end]
 
-    train_dataset = ChessPositionEvaluationDataset(train_positions, train_evals)
+    train_dataset = ChessDataset(train_positions, train_evals)
 
     print(
         f"Loaded tensor dataset from {dataset_path} with positions shape "
@@ -279,11 +281,11 @@ def load_chess_tensor_dataset(cfg: DictConfig):
         test_positions = positions[valid_end:]
         test_evals = evaluations[valid_end:]
 
-        valid_dataset = ChessPositionEvaluationDataset(valid_positions, valid_evals)
-        test_dataset = ChessPositionEvaluationDataset(test_positions, test_evals)
+        valid_dataset = ChessDataset(valid_positions, valid_evals)
+        test_dataset = ChessDataset(test_positions, test_evals)
         return train_dataset, valid_dataset, test_dataset
 
     test_positions = positions[train_end:]
     test_evals = evaluations[train_end:]
-    test_dataset = ChessPositionEvaluationDataset(test_positions, test_evals)
+    test_dataset = ChessDataset(test_positions, test_evals)
     return train_dataset, test_dataset

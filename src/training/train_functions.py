@@ -20,9 +20,9 @@ def train_one_epoch(
     writer: SummaryWriter | None = None,
 ) -> tuple[float, float]:
     model.train()
-    total_loss = 0.0
-    total_samples = 0
-    epoch_start_time = time.perf_counter()
+    total_loss: float = 0.0
+    total_samples: int = 0
+    epoch_start_time: float = time.perf_counter()
 
     for step, (positions, evaluations) in enumerate(dataloader):
         global_step = epoch * len(dataloader) + step
@@ -57,8 +57,8 @@ def validate(
     batch_metrics_fn: BatchMetricsFn | None = None,
 ) -> dict[str, float]:
     model.eval()
-    total_loss = 0.0
-    total_samples = 0
+    total_loss: float = 0.0
+    total_samples: int = 0
     metric_sums: dict[str, float] = {}
 
     with torch.no_grad():
@@ -80,7 +80,7 @@ def validate(
                         metric_sums.get(metric_name, 0.0) + metric_value * batch_size
                     )
 
-    metrics = {"loss": total_loss / max(total_samples, 1)}
+    metrics: dict[str, float] = {"loss": total_loss / max(total_samples, 1)}
     for metric_name, metric_sum in metric_sums.items():
         metrics[metric_name] = metric_sum / max(total_samples, 1)
 

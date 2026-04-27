@@ -1,9 +1,10 @@
 from pathlib import Path
+from typing import cast
 
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 
 from src.data.load_dataset import load_dataset
@@ -26,7 +27,7 @@ def _transform_positions(
 
 def _build_invariance_metrics_fn(group: str) -> BatchMetricsFn:
     group_spec = get_group_spec(group)
-    non_identity_elements = [
+    non_identity_elements: list[tuple[int, int]] = [
         element for element in group_spec.elements if not (element[0] == 0 and element[1] == 0)
     ]
 
@@ -82,7 +83,7 @@ def train_gecnn(cfg: DictConfig) -> None:
     print(f"Using device: {train_config.device}")
     device = torch.device(train_config.device)
 
-    dataset_splits = load_dataset(data_config)
+    dataset_splits: tuple[Dataset, ...] = cast(tuple[Dataset, ...], load_dataset(data_config))
     if len(dataset_splits) == 3:
         train_dataset, valid_dataset, test_dataset = dataset_splits
     else:
@@ -101,7 +102,7 @@ def train_gecnn(cfg: DictConfig) -> None:
         test_dataset, batch_size=train_config.batch_size, shuffle=False
     )
 
-    model = instantiate(model_config).to(device)
+    model: torch.nn.Module = instantiate(model_config).to(device)
 
     if train_config.loss_fn == "MSELoss":
         loss_fn = torch.nn.MSELoss()
@@ -110,7 +111,9 @@ def train_gecnn(cfg: DictConfig) -> None:
     else:
         raise ValueError(f"Unsupported loss function: {train_config.loss_fn}")
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
+    optimizer: torch.optim.Optimizer = torch.optim.Adam(
+        model.parameters(), lr=train_config.lr
+    )
 
     tensorboard_log_dir = Path(train_config.tensorboard_log_dir)
     checkpoint_dir = Path(train_config.checkpoint_path)
@@ -119,7 +122,9 @@ def train_gecnn(cfg: DictConfig) -> None:
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     writer = SummaryWriter(log_dir=str(tensorboard_log_dir))
 
-    invariance_metrics_fn = _build_invariance_metrics_fn(model_config.group)
+    invariance_metrics_fn: BatchMetricsFn = _build_invariance_metrics_fn(
+        model_config.group
+    )
 
     for epoch in range(train_config.num_epochs):
         avg_train_loss, epoch_time_sec = train_one_epoch(
@@ -147,12 +152,16 @@ def train_gecnn(cfg: DictConfig) -> None:
                 device=device,
                 batch_metrics_fn=invariance_metrics_fn,
             )
-            avg_eval_loss = valid_metrics["loss"]
-            invariance_abs_error = valid_metrics["invariance_abs_error"]
-            invariance_rel_error = valid_metrics["invariance_rel_error"]
-            avg_test_loss = test_metrics["loss"]
-            test_invariance_abs_error = test_metrics["invariance_abs_error"]
-            test_invariance_rel_error = test_metrics["invariance_rel_error"]
+            avg_eval_loss: float = valid_metrics["loss"]
+            invariance_abs_error: float = valid_metrics["invariance_abs_error"]
+            invariance_rel_error: float = valid_metrics["invariance_rel_error"]
+            avg_test_loss: float | None = test_metrics["loss"]
+            test_invariance_abs_error: float | None = test_metrics[
+                "invariance_abs_error"
+            ]
+            test_invariance_rel_error: float | None = test_metrics[
+                "invariance_rel_error"
+            ]
         else:
             eval_metrics = evaluate(
                 model=model,

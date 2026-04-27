@@ -2,8 +2,8 @@ import torch
 from torch.utils.data import Dataset
 
 
-class ChessPositionEvaluationDataset(Dataset):
-    def __init__(self, positions: torch.Tensor, evaluations: torch.Tensor):
+class ChessDataset(Dataset):
+    def __init__(self, positions: torch.Tensor, evaluations: torch.Tensor) -> None:
         """
         Dataset for chess position evaluations.
 
@@ -14,15 +14,15 @@ class ChessPositionEvaluationDataset(Dataset):
         self.positions = positions
         self.evaluations = evaluations
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.evaluations)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         return self.positions[idx], self.evaluations[idx]
 
 
 class CelebADataset(Dataset):
-    def __init__(self, base_dataset: Dataset, target_attr_idx: int | None = None):
+    def __init__(self, base_dataset: Dataset, target_attr_idx: int | None = None) -> None:
         """
         Lightweight wrapper around torchvision CelebA datasets.
 
@@ -33,10 +33,10 @@ class CelebADataset(Dataset):
         self.base_dataset = base_dataset
         self.target_attr_idx = target_attr_idx
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.base_dataset)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         image, target = self.base_dataset[idx]
 
         if self.target_attr_idx is not None and torch.is_tensor(target):

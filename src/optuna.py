@@ -2,7 +2,9 @@ import argparse
 import math
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
@@ -12,12 +14,12 @@ PROJECT_ROOT = Path(__file__).parent.parent
 OUTPUT_ROOT = PROJECT_ROOT / "outputs" / "optuna"
 
 
-def _sample_basecnn_params(trial: optuna.Trial) -> dict:
+def _sample_basecnn_params(trial: optuna.Trial) -> dict[str, Any]:
     """Sample hyperparameters for the BaseCNN model."""
 
     # Model architecture parameters
     num_conv_layers = trial.suggest_int("num_conv_layers", 2, 5)
-    hidden_channels = []
+    hidden_channels: list[int] = []
     for i in range(num_conv_layers):
         hidden_channels.append(
             trial.suggest_categorical(
@@ -30,7 +32,7 @@ def _sample_basecnn_params(trial: optuna.Trial) -> dict:
     padding = [1] * num_conv_layers
 
     num_linear_layers = trial.suggest_int("num_linear_layers", 1, 3)
-    linear_hidden_features = []
+    linear_hidden_features: list[int] = []
     for i in range(num_linear_layers):
         linear_hidden_features.append(
             trial.suggest_categorical(
@@ -55,12 +57,12 @@ def _sample_basecnn_params(trial: optuna.Trial) -> dict:
     }
 
 
-def sample_gecnn_params(trial: optuna.Trial) -> dict:
+def sample_gecnn_params(trial: optuna.Trial) -> dict[str, Any]:
     """Sample hyperparameters for the GECNN model."""
 
     # Model architecture parameters
     num_conv_layers = trial.suggest_int("num_conv_layers", 2, 5)
-    hidden_channels = []
+    hidden_channels: list[int] = []
     for i in range(num_conv_layers):
         hidden_channels.append(
             trial.suggest_categorical(
@@ -73,7 +75,7 @@ def sample_gecnn_params(trial: optuna.Trial) -> dict:
     padding = [1] * num_conv_layers
 
     num_linear_layers = trial.suggest_int("num_linear_layers", 1, 3)
-    linear_hidden_features = []
+    linear_hidden_features: list[int] = []
     for i in range(num_linear_layers):
         linear_hidden_features.append(
             trial.suggest_categorical(
@@ -98,9 +100,9 @@ def sample_gecnn_params(trial: optuna.Trial) -> dict:
     }
 
 
-def sample_params(mode: str, trial: optuna.Trial) -> dict:
+def sample_params(mode: str, trial: optuna.Trial) -> dict[str, Any]:
     """Sample hyperparameters based on the specified mode."""
-    samplers = {
+    samplers: dict[str, Callable[[optuna.Trial], dict[str, Any]]] = {
         "base_cnn": _sample_basecnn_params,
         "gecnn": sample_gecnn_params,
     }
@@ -129,7 +131,7 @@ def _read_best_metric(log_dir: Path) -> float:
 
 def _build_trial_command(
     args: argparse.Namespace, trial: optuna.Trial, trial_dir: Path
-) -> str:
+) -> list[str]:
     """Build a command string to run a training trial with the given parameters."""
 
     sampled = sample_params(args.mode, trial)
@@ -160,7 +162,10 @@ def _build_trial_command(
     return cmd
 
 
-def _objective(args: argparse.Namespace, output_root: Path):
+def _objective(
+    args: argparse.Namespace,
+    output_root: Path,
+) -> Callable[[optuna.Trial], float]:
     def objective(trial: optuna.Trial) -> float:
         study_prefix = args.study_name if args.study_name else args.algorithm
         trial_dir = output_root / study_prefix / f"trial_{trial.number:04d}"
@@ -259,7 +264,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
     output_root = Path(args.output_root)
 
@@ -277,7 +282,7 @@ def main():
         direction="minimize",
     )
 
-    objective = _objective(args, output_root)
+    objective: Callable[[optuna.Trial], float] = _objective(args, output_root)
 
     try:
         study.optimize(

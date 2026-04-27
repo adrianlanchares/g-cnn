@@ -18,7 +18,7 @@ class GECNN(nn.Module):
         linear_out_features: int = 1,
         group: str = "Z2",
         final_tanh: bool = False,
-    ):
+    ) -> None:
         """Group-Equivariant CNN implemented with native PyTorch.
 
         Architecture mirrors BaseCNN:
@@ -55,8 +55,8 @@ class GECNN(nn.Module):
         self.group_spec = get_group_spec(group)
         self.group_order = self.group_spec.order
 
-        layers = []
-        current_in_channels = in_channels
+        layers: list[nn.Module] = []
+        current_in_channels: int = in_channels
 
         first_hidden = hidden_channels[0] if hidden_channels else out_channels
         first_kernel = kernel_sizes[0] if kernel_sizes else 3
@@ -109,8 +109,8 @@ class GECNN(nn.Module):
         self.flatten = nn.Flatten(start_dim=1)
 
         # Calculate the number of features after the convolutional layers to determine the input size for the linear layer
-        linear_in_features = out_channels
-        linear_layers = []
+        linear_in_features: int = out_channels
+        linear_layers: list[nn.Module] = []
         for hidden_feature in linear_hidden_features:
             linear_layers.append(MLPBlock(linear_in_features, hidden_feature))
             linear_in_features = hidden_feature

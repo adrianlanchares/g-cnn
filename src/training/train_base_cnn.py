@@ -1,9 +1,10 @@
 from pathlib import Path
+from typing import cast
 
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 
 from src.data.load_dataset import load_dataset
@@ -22,7 +23,7 @@ def train_base_cnn(
     print(f"Using device: {train_config.device}")
     device = torch.device(train_config.device)
 
-    dataset_splits = load_dataset(data_config)
+    dataset_splits: tuple[Dataset, ...] = cast(tuple[Dataset, ...], load_dataset(data_config))
     if len(dataset_splits) == 3:
         train_dataset, valid_dataset, test_dataset = dataset_splits
     else:
@@ -42,7 +43,7 @@ def train_base_cnn(
     )
 
     # Initialize model, loss function, and optimizer
-    model = instantiate(model_config).to(device)
+    model: torch.nn.Module = instantiate(model_config).to(device)
 
     if train_config.loss_fn == "MSELoss":
         loss_fn = torch.nn.MSELoss()
@@ -51,7 +52,9 @@ def train_base_cnn(
     else:
         raise ValueError(f"Unsupported loss function: {train_config.loss_fn}")
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
+    optimizer: torch.optim.Optimizer = torch.optim.Adam(
+        model.parameters(), lr=train_config.lr
+    )
 
     tensorboard_log_dir = Path(train_config.tensorboard_log_dir)
     checkpoint_dir = Path(train_config.checkpoint_path)
@@ -84,8 +87,8 @@ def train_base_cnn(
                 dataloader=test_dataloader,
                 device=device,
             )
-            avg_eval_loss = valid_metrics["loss"]
-            avg_test_loss = test_metrics["loss"]
+            avg_eval_loss: float = valid_metrics["loss"]
+            avg_test_loss: float | None = test_metrics["loss"]
         else:
             eval_metrics = evaluate(
                 model=model,

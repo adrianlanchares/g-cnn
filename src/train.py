@@ -1,9 +1,10 @@
 import hydra
 from omegaconf import DictConfig
+from typing import Callable
 
 from src.training import train_base_cnn, train_gecnn
 
-_TRAINERS = {
+_TRAINERS: dict[str, Callable[[DictConfig], None]] = {
     "base_cnn": train_base_cnn,
     "gecnn": train_gecnn,
 }
@@ -15,7 +16,7 @@ def main(cfg: DictConfig) -> None:
     if mode not in _TRAINERS:
         raise ValueError(f"Unsupported mode: {mode}")
 
-    trainer = _TRAINERS[mode]
+    trainer: Callable[[DictConfig], None] = _TRAINERS[mode]
     trainer(cfg)
 
 
