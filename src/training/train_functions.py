@@ -10,6 +10,50 @@ from torch.utils.tensorboard import SummaryWriter
 BatchMetricsFn = Callable[[nn.Module, torch.Tensor, torch.Tensor], dict[str, float]]
 
 
+def _get_accuracy_config(accuracy_config: object | None) -> tuple[bool, bool, float]:
+    if accuracy_config is None:
+        return False, False, 0.5
+
+    if isinstance(accuracy_config, dict):
+        enable = bool(accuracy_config.get("enable", False))
+        per_attribute = bool(accuracy_config.get("per_attribute", False))
+        threshold = float(accuracy_config.get("threshold", 0.5))
+    else:
+        enable = bool(getattr(accuracy_config, "enable", False))
+        per_attribute = bool(getattr(accuracy_config, "per_attribute", False))
+        threshold = float(getattr(accuracy_config, "threshold", 0.5))
+
+    return enable, per_attribute, threshold
+
+
+def _compute_accuracy_metrics(
+    outputs: torch.Tensor,
+    targets: torch.Tensor,
+    threshold: float,
+    per_attribute: bool,
+) -> dict[str, float]:
+    if targets.dtype in (torch.int64, torch.int32) and outputs.ndim == 2:
+        preds = outputs.argmax(dim=1)
+        accuracy = (preds == targets).float().mean().item()
+        return {"accuracy": accuracy}
+
+    if outputs.ndim == 1:
+        outputs = outputs.unsqueeze(1)
+    if targets.ndim == 1:
+        targets = targets.unsqueeze(1)
+
+    probs = torch.sigmoid(outputs)
+    preds = (probs > threshold).float()
+    targets = targets.float()
+
+    acc_per_attr = (preds == targets).float().mean(dim=0)
+    metrics = {"accuracy": acc_per_attr.mean().item()}
+    if per_attribute:
+        for idx, value in enumerate(acc_per_attr):
+            metrics[f"accuracy_attr_{idx}"] = value.item()
+    return metrics
+
+
 def compute_pos_weight(dataset: Dataset) -> torch.Tensor:
     labels: torch.Tensor | None = None
 
@@ -83,11 +127,16 @@ def validate(
     dataloader: DataLoader,
     device: torch.device,
     batch_metrics_fn: BatchMetricsFn | None = None,
+    accuracy_config: object | None = None,
 ) -> dict[str, float]:
     model.eval()
     total_loss: float = 0.0
     total_samples: int = 0
     metric_sums: dict[str, float] = {}
+
+    acc_enable, acc_per_attribute, acc_threshold = _get_accuracy_config(
+        accuracy_config
+    )
 
     with torch.no_grad():
         for positions, evaluations in dataloader:
@@ -108,6 +157,18 @@ def validate(
                         metric_sums.get(metric_name, 0.0) + metric_value * batch_size
                     )
 
+            if acc_enable:
+                acc_metrics = _compute_accuracy_metrics(
+                    outputs=outputs,
+                    targets=evaluations,
+                    threshold=acc_threshold,
+                    per_attribute=acc_per_attribute,
+                )
+                for metric_name, metric_value in acc_metrics.items():
+                    metric_sums[metric_name] = (
+                        metric_sums.get(metric_name, 0.0) + metric_value * batch_size
+                    )
+
     metrics: dict[str, float] = {"loss": total_loss / max(total_samples, 1)}
     for metric_name, metric_sum in metric_sums.items():
         metrics[metric_name] = metric_sum / max(total_samples, 1)
@@ -121,6 +182,7 @@ def evaluate(
     dataloader: DataLoader,
     device: torch.device,
     batch_metrics_fn: BatchMetricsFn | None = None,
+    accuracy_config: object | None = None,
 ) -> dict[str, float]:
     return validate(
         model=model,
@@ -128,4 +190,5 @@ def evaluate(
         dataloader=dataloader,
         device=device,
         batch_metrics_fn=batch_metrics_fn,
+        accuracy_config=accuracy_config,
     )

@@ -91,12 +91,14 @@ def train_base_cnn(
                 loss_fn=loss_fn,
                 dataloader=valid_dataloader,
                 device=device,
+                accuracy_config=getattr(train_config, "accuracy", None),
             )
             test_metrics = evaluate(
                 model=model,
                 loss_fn=loss_fn,
                 dataloader=test_dataloader,
                 device=device,
+                accuracy_config=getattr(train_config, "accuracy", None),
             )
             avg_eval_loss: float = valid_metrics["loss"]
             avg_test_loss: float | None = test_metrics["loss"]
@@ -106,14 +108,26 @@ def train_base_cnn(
                 loss_fn=loss_fn,
                 dataloader=test_dataloader,
                 device=device,
+                accuracy_config=getattr(train_config, "accuracy", None),
             )
             avg_eval_loss = eval_metrics["loss"]
             avg_test_loss = None
 
         writer.add_scalar("train/avg_loss", avg_train_loss, epoch + 1)
         writer.add_scalar("eval/avg_loss", avg_eval_loss, epoch + 1)
+        if "accuracy" in valid_metrics if valid_dataloader is not None else "accuracy" in eval_metrics:
+            eval_metrics_source = valid_metrics if valid_dataloader is not None else eval_metrics
+            writer.add_scalar("eval/accuracy", eval_metrics_source["accuracy"], epoch + 1)
+            for metric_name, metric_value in eval_metrics_source.items():
+                if metric_name.startswith("accuracy_attr_"):
+                    writer.add_scalar(f"eval/{metric_name}", metric_value, epoch + 1)
         if avg_test_loss is not None:
             writer.add_scalar("test/avg_loss", avg_test_loss, epoch + 1)
+            if "accuracy" in test_metrics:
+                writer.add_scalar("test/accuracy", test_metrics["accuracy"], epoch + 1)
+                for metric_name, metric_value in test_metrics.items():
+                    if metric_name.startswith("accuracy_attr_"):
+                        writer.add_scalar(f"test/{metric_name}", metric_value, epoch + 1)
         writer.add_scalar("train/epoch_time_sec", epoch_time_sec, epoch + 1)
 
         if avg_test_loss is not None:

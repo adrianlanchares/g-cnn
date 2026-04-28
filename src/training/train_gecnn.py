@@ -160,6 +160,7 @@ def train_gecnn(cfg: DictConfig) -> None:
                 dataloader=valid_dataloader,
                 device=device,
                 batch_metrics_fn=invariance_metrics_fn,
+                accuracy_config=getattr(train_config, "accuracy", None),
             )
             test_metrics = evaluate(
                 model=model,
@@ -167,6 +168,7 @@ def train_gecnn(cfg: DictConfig) -> None:
                 dataloader=test_dataloader,
                 device=device,
                 batch_metrics_fn=invariance_metrics_fn,
+                accuracy_config=getattr(train_config, "accuracy", None),
             )
             avg_eval_loss: float = valid_metrics["loss"]
             invariance_abs_error: float = valid_metrics["invariance_abs_error"]
@@ -185,6 +187,7 @@ def train_gecnn(cfg: DictConfig) -> None:
                 dataloader=test_dataloader,
                 device=device,
                 batch_metrics_fn=invariance_metrics_fn,
+                accuracy_config=getattr(train_config, "accuracy", None),
             )
 
             avg_eval_loss = eval_metrics["loss"]
@@ -198,6 +201,12 @@ def train_gecnn(cfg: DictConfig) -> None:
         writer.add_scalar("eval/avg_loss", avg_eval_loss, epoch + 1)
         writer.add_scalar("eval/invariance_abs_error", invariance_abs_error, epoch + 1)
         writer.add_scalar("eval/invariance_rel_error", invariance_rel_error, epoch + 1)
+        if "accuracy" in valid_metrics if valid_dataloader is not None else "accuracy" in eval_metrics:
+            eval_metrics_source = valid_metrics if valid_dataloader is not None else eval_metrics
+            writer.add_scalar("eval/accuracy", eval_metrics_source["accuracy"], epoch + 1)
+            for metric_name, metric_value in eval_metrics_source.items():
+                if metric_name.startswith("accuracy_attr_"):
+                    writer.add_scalar(f"eval/{metric_name}", metric_value, epoch + 1)
         if avg_test_loss is not None:
             writer.add_scalar("test/avg_loss", avg_test_loss, epoch + 1)
             writer.add_scalar(
@@ -206,6 +215,11 @@ def train_gecnn(cfg: DictConfig) -> None:
             writer.add_scalar(
                 "test/invariance_rel_error", test_invariance_rel_error, epoch + 1
             )
+            if "accuracy" in test_metrics:
+                writer.add_scalar("test/accuracy", test_metrics["accuracy"], epoch + 1)
+                for metric_name, metric_value in test_metrics.items():
+                    if metric_name.startswith("accuracy_attr_"):
+                        writer.add_scalar(f"test/{metric_name}", metric_value, epoch + 1)
         writer.add_scalar("train/epoch_time_sec", epoch_time_sec, epoch + 1)
 
         if avg_test_loss is not None:
