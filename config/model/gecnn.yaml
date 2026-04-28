@@ -3,10 +3,10 @@ _target_: src.models.gecnn.GECNN
 in_channels: 3
 out_channels: 128
 
-hidden_channels: [32, 32, 64, 128, 128]
-kernel_sizes: [3, 3, 3, 3, 3]
-strides: [1, 1, 1, 1, 1]
-padding: [1, 1, 1, 1, 1]
+hidden_channels: [32, 64, 128]
+kernel_sizes: [3, 3, 3]
+strides: [1, 1, 1]
+padding: [1, 1, 1]
 
 batchnorm: true
 

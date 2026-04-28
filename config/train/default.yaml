@@ -1,9 +1,9 @@
 device: cuda
 
-num_epochs: 10
+num_epochs: 100
 batch_size: 64
 
-lr: 0.001
+lr: 0.0001
 loss_fn: BCEWithLogitsLoss
 
 save_checkpoint_every: 20

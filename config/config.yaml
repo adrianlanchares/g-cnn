@@ -1,11 +1,11 @@
 defaults:
   - data: celeba
   - train: default
-  - model: gecnn
+  - model: base_cnn
   - _self_
 
 problem: celeba
-mode: gecnn
+mode: base_cnn
 seed: 42
 
 hydra:
