@@ -34,7 +34,9 @@ def _transform_positions(
 def _build_invariance_metrics_fn(group: str) -> BatchMetricsFn:
     group_spec = get_group_spec(group)
     non_identity_elements: list[tuple[int, int]] = [
-        element for element in group_spec.elements if not (element[0] == 0 and element[1] == 0)
+        element
+        for element in group_spec.elements
+        if not (element[0] == 0 and element[1] == 0)
     ]
 
     def metrics_fn(
@@ -60,7 +62,9 @@ def _build_invariance_metrics_fn(group: str) -> BatchMetricsFn:
                 rotation_k=rotation_k,
                 mirrored=bool(mirror),
             )
-            transformed_outputs = model(transformed_positions).reshape(outputs.shape[0], -1)
+            transformed_outputs = model(transformed_positions).reshape(
+                outputs.shape[0], -1
+            )
 
             abs_error_per_sample = (baseline - transformed_outputs).abs().mean(dim=1)
             rel_error_per_sample = abs_error_per_sample / (baseline_abs_mean + 1e-8)
@@ -89,7 +93,9 @@ def train_gecnn(cfg: DictConfig) -> None:
     print(f"Using device: {train_config.device}")
     device = torch.device(train_config.device)
 
-    dataset_splits: tuple[Dataset, ...] = cast(tuple[Dataset, ...], load_dataset(data_config))
+    dataset_splits: tuple[Dataset, ...] = cast(
+        tuple[Dataset, ...], load_dataset(data_config)
+    )
     if len(dataset_splits) == 3:
         train_dataset, valid_dataset, test_dataset = dataset_splits
     else:
@@ -144,6 +150,7 @@ def train_gecnn(cfg: DictConfig) -> None:
             device=device,
             epoch=epoch,
             writer=writer,
+            write_every=train_config.train_write_every,
         )
 
         if valid_dataloader is not None:

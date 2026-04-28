@@ -28,7 +28,9 @@ def train_base_cnn(
     print(f"Using device: {train_config.device}")
     device = torch.device(train_config.device)
 
-    dataset_splits: tuple[Dataset, ...] = cast(tuple[Dataset, ...], load_dataset(data_config))
+    dataset_splits: tuple[Dataset, ...] = cast(
+        tuple[Dataset, ...], load_dataset(data_config)
+    )
     if len(dataset_splits) == 3:
         train_dataset, valid_dataset, test_dataset = dataset_splits
     else:
@@ -81,6 +83,7 @@ def train_base_cnn(
             device=device,
             epoch=epoch,
             writer=writer,
+            write_every=train_config.train_write_every,
         )
         if valid_dataloader is not None:
             valid_metrics = validate(

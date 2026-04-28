@@ -44,6 +44,7 @@ def train_one_epoch(
     device: torch.device,
     epoch: int,
     writer: SummaryWriter | None = None,
+    write_every: int = None,
 ) -> tuple[float, float]:
     model.train()
     total_loss: float = 0.0
@@ -68,7 +69,8 @@ def train_one_epoch(
         optimizer.step()
 
         if writer is not None:
-            writer.add_scalar("train/step_loss", loss.item(), global_step)
+            if write_every is not None and step % write_every == 0:
+                writer.add_scalar("train/step_loss", loss.item(), global_step)
 
     epoch_time_sec = time.perf_counter() - epoch_start_time
     avg_loss = total_loss / max(total_samples, 1)
