@@ -8,6 +8,7 @@ target_attribute: all
 
 num_attributes: 40
 
+resize: true
 image_size: 64
 normalize: true
 normalize_mean: [0.5, 0.5, 0.5]

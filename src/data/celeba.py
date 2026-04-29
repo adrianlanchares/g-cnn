@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 from omegaconf import DictConfig
 from torch.utils.data import Dataset
@@ -9,10 +8,12 @@ from src.data.dataset import CelebADataset
 
 
 def _build_celeba_transform(cfg: DictConfig) -> transforms.Compose:
-    transform_steps: list[Any] = [
-        transforms.Resize((cfg.image_size, cfg.image_size)),
-        transforms.ToTensor(),
-    ]
+    transform_steps: list[object] = []
+
+    if cfg.resize:
+        transform_steps.append(transforms.Resize((cfg.image_size, cfg.image_size)))
+
+    transform_steps.append(transforms.ToTensor())
 
     if cfg.normalize:
         transform_steps.append(

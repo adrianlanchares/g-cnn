@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 import requests
 import torch
@@ -46,10 +46,12 @@ def _extract_archive(archive_path: Path, dest_dir: Path) -> None:
 
 
 def _build_crc_transform(cfg: DictConfig) -> transforms.Compose:
-    transform_steps: list[object] = [
-        transforms.Resize((cfg.image_size, cfg.image_size)),
-        transforms.ToTensor(),
-    ]
+    transform_steps: list[object] = []
+
+    if cfg.resize:
+        transform_steps.append(transforms.Resize((cfg.image_size, cfg.image_size)))
+
+    transform_steps.append(transforms.ToTensor())
 
     if cfg.normalize:
         transform_steps.append(
@@ -117,7 +119,9 @@ def _split_validation_dataset(
     dataset: Dataset, validation_split: float, seed: int
 ) -> tuple[Dataset, Dataset]:
     if validation_split <= 0.0 or validation_split >= 1.0:
-        raise ValueError("validation_split must be in (0, 1) when do_validation is true.")
+        raise ValueError(
+            "validation_split must be in (0, 1) when do_validation is true."
+        )
 
     total_len = len(dataset)
     valid_len = int(total_len * validation_split)

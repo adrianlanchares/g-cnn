@@ -5,8 +5,9 @@ archive_dir: ${.data_dir}/archives
 
 download: true
 
-image_size: 64
-normalize: true
+resize: false
+image_size: 224
+normalize: false
 normalize_mean: [0.5, 0.5, 0.5]
 normalize_std: [0.5, 0.5, 0.5]
 
