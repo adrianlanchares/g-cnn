@@ -11,31 +11,6 @@ services:
     working_dir: /app
     command: ["python3", "-m", "src.train"]
 
-  train-basecnn:
-    build: .
-    image: gcnn:latest
-    container_name: gcnn-train-basecnn
-    stdin_open: true
-    tty: true
-    
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: ["python3", "-m", "src.train", "model=base_cnn", "mode=base_cnn"]
-
-
-  train-gecnn:
-    build: .
-    image: gcnn:latest
-    container_name: gcnn-train-gecnn
-    stdin_open: true
-    tty: true
-    
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: ["python3", "-m", "src.optuna", "--study-name", "chess-gecnn"]
-
   tensorboard:
     build: .
     image: gcnn:latest

@@ -1,10 +1,10 @@
 defaults:
-  - data: celeba
+  - data: crc
   - train: default
   - model: base_cnn
   - _self_
 
-problem: celeba
+problem: crc
 mode: base_cnn
 seed: 42
 
