@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 
 from src.data.celeba import load_celeba_datasets
 from src.data.chess import load_chess_tensor_dataset
+from src.data.crc import load_crc_datasets
 
 
 def load_dataset(
@@ -16,7 +17,10 @@ def load_dataset(
     if dataset_name in {"celeba"}:
         return load_celeba_datasets(cfg)
 
+    if dataset_name in {"crc", "nct-crc", "nct_crc"}:
+        return load_crc_datasets(cfg)
+
     raise ValueError(
         "Unsupported dataset_name: "
-        f"{cfg.dataset_name}. Supported values are chess and CelebA."
+        f"{cfg.dataset_name}. Supported values are chess, CelebA, and CRC."
     )

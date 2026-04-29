@@ -1,0 +1,17 @@
+dataset_name: crc
+
+data_dir: ${hydra:runtime.cwd}/data/crc
+archive_dir: ${.data_dir}/archives
+
+download: true
+
+image_size: 64
+normalize: true
+normalize_mean: [0.5, 0.5, 0.5]
+normalize_std: [0.5, 0.5, 0.5]
+
+do_validation: true
+validation_split: 0.5
+split_seed: 42
+
+num_attributes: 9
