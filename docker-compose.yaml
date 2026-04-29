@@ -1,8 +1,8 @@
 services:
   train:
     build: .
-    image: chess-gecnn:latest
-    container_name: chess-gecnn-train
+    image: gcnn:latest
+    container_name: gcnn-train
     stdin_open: true
     tty: true
     
@@ -13,8 +13,8 @@ services:
 
   train-basecnn:
     build: .
-    image: chess-gecnn:latest
-    container_name: chess-gecnn-train-basecnn
+    image: gcnn:latest
+    container_name: gcnn-train-basecnn
     stdin_open: true
     tty: true
     
@@ -26,8 +26,8 @@ services:
 
   train-gecnn:
     build: .
-    image: chess-gecnn:latest
-    container_name: chess-gecnn-train-gecnn
+    image: gcnn:latest
+    container_name: gcnn-train-gecnn
     stdin_open: true
     tty: true
     
@@ -38,8 +38,8 @@ services:
 
   tensorboard:
     build: .
-    image: chess-gecnn:latest
-    container_name: chess-gecnn-tensorboard
+    image: gcnn:latest
+    container_name: gcnn-tensorboard
     stdin_open: true
     tty: true
     volumes:
@@ -51,8 +51,8 @@ services:
 
   optuna-dashboard:
     build: .
-    image: chess-gecnn:latest
-    container_name: chess-gecnn-optuna-dashboard
+    image: gcnn:latest
+    container_name: gcnn-optuna-dashboard
     stdin_open: true
     tty: true
     volumes:
