@@ -12,6 +12,6 @@ batchnorm: true
 
 linear_hidden_features: [256, 128, 64]
 linear_out_features: ${data.num_attributes}
-group: Z2
+group: p4m
 
 final_tanh: false
