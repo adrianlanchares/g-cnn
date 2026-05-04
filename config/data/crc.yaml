@@ -3,15 +3,15 @@ dataset_name: crc
 data_dir: ${hydra:runtime.cwd}/data/crc
 archive_dir: ${.data_dir}/archives
 
-download: true
+download: false
 
-resize: false
-image_size: 224
+resize: true
+image_size: 128
 normalize: false
 normalize_mean: [0.5, 0.5, 0.5]
 normalize_std: [0.5, 0.5, 0.5]
 
-do_validation: true
+do_validation: false
 validation_split: 0.5
 split_seed: 42
 
