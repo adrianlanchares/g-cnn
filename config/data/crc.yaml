@@ -13,6 +13,6 @@ normalize_std: [0.5, 0.5, 0.5]
 
 do_validation: false
 validation_split: 0.5
-split_seed: 42
+split_seed: 21
 
 num_attributes: 9
