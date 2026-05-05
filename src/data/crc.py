@@ -8,6 +8,8 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import Dataset, random_split
 from torchvision import datasets, transforms
+
+from src.data.dataset import CRCAugmentedDataset
 from tqdm import tqdm
 
 FILES: dict[str, str] = {
@@ -64,6 +66,25 @@ def _build_crc_transform(cfg: DictConfig) -> transforms.Compose:
     return transforms.Compose(transform_steps)
 
 
+def _build_crc_augmentation_transform() -> transforms.Compose:
+    return transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomRotation(90),
+        ]
+    )
+
+
+def with_crc_augmentation(dataset: Dataset) -> Dataset:
+    """
+    Return a dataset that augments images with flips and rotations.
+
+    Targets are left untouched.
+    """
+    return CRCAugmentedDataset(dataset, _build_crc_augmentation_transform())
+
+
 def prepare_crc_dataset(cfg: DictConfig) -> None:
     data_dir = Path(cfg.data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -111,6 +132,10 @@ def _build_crc_datasets(cfg: DictConfig) -> tuple[Dataset, Dataset]:
     val_dataset = datasets.ImageFolder(
         root=str(data_dir / VAL_FOLDER), transform=transform
     )
+
+    use_augmentation = bool(getattr(cfg, "use_augmentation", False))
+    if use_augmentation:
+        train_dataset = with_crc_augmentation(train_dataset)
 
     return train_dataset, val_dataset
 
