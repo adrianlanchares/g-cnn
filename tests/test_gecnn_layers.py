@@ -42,7 +42,7 @@ def test_group_conv_output_shape() -> None:
 
 
 def test_group_conv_backward_runs() -> None:
-    group = "Z2"
+    group = "C2"
     group_order = get_group_spec(group).order
 
     layer = GroupConv2d(

@@ -43,7 +43,7 @@ class GECNN(nn.Module):
 
         Raises:
             ValueError: If hidden_channels and kernel_sizes have different lengths.
-            ValueError: If group is not one of: Z2, p4, p4m.
+            ValueError: If group is not one of: Z2, C2, p4, p4m.
         """
         super().__init__()
 

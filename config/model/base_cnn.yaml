@@ -1,7 +1,7 @@
 _target_: src.models.base_cnn.BaseCNN
 
 in_channels: 3
-out_channels: 180
+out_channels: 256
 
 hidden_channels: [64, 128, 256]
 kernel_sizes: [3, 3, 3]

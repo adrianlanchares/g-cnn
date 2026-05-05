@@ -19,8 +19,8 @@ def _build_small_gecnn(group: str) -> GECNN:
 
 
 @torch.no_grad()
-def test_z2_flip_invariance_after_group_pooling() -> None:
-    model = _build_small_gecnn("Z2")
+def test_c2_flip_invariance_after_group_pooling() -> None:
+    model = _build_small_gecnn("C2")
     model.eval()
 
     x = torch.randn(2, 12, 8, 8)
