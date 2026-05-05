@@ -11,6 +11,18 @@ services:
     working_dir: /app
     command: ["python3", "-m", "src.train"]
 
+  eval:
+    build: .
+    image: gcnn:latest
+    container_name: gcnn-eval
+    stdin_open: true
+    tty: true
+    
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["python3", "-m", "src.evaluate"]
+
   tensorboard:
     build: .
     image: gcnn:latest
