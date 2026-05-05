@@ -3,7 +3,6 @@ from pathlib import Path
 
 import hydra
 import torch
-from hydra.core.global_hydra import GlobalHydra
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset
@@ -46,18 +45,8 @@ def _get_metrics_output_path(model_path: Path) -> Path:
     return metrics_dir / f"{model_path.stem}.json"
 
 
-def main() -> None:
-    if GlobalHydra.instance().is_initialized():
-        GlobalHydra.instance().clear()
-    hydra.initialize(version_base=None, config_path="../config")
-    cfg = hydra.compose(
-        config_name="config",
-        overrides=[
-            "hydra.run.dir=.",
-            "hydra.output_subdir=null",
-            "hydra.job.chdir=false",
-        ],
-    )
+@hydra.main(version_base=None, config_path="../config", config_name="config")
+def main(cfg: DictConfig) -> None:
     data_config = cfg.data
     train_config = cfg.train
     model_config = cfg.model
