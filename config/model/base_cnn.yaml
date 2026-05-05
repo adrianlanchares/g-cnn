@@ -5,7 +5,7 @@ out_channels: 180
 
 hidden_channels: [40, 90, 180]
 kernel_sizes: [3, 3, 3]
-strides: [1, 1, 1]
+strides: [2, 2, 2]
 padding: [1, 1, 1]
 
 batchnorm: true
