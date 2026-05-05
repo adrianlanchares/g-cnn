@@ -1,19 +1,24 @@
-import torch
-from hydra.utils import instantiate
-from omegaconf import OmegaConf
+from pathlib import Path
+
 import pytest
+import torch
+from hydra import compose, initialize_config_dir
+from hydra.utils import instantiate
 
 from src.models.gecnn import GECNN
 
 
 def test_gecnn_forward_shape_default_config() -> None:
-    cfg = OmegaConf.load("config/model/gecnn.yaml")
-    model = instantiate(cfg)
+    config_dir = Path(__file__).resolve().parents[1] / "config"
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir)):
+        cfg = compose(config_name="config", overrides=["model=gecnn"])
 
-    x = torch.randn(4, cfg.in_channels, 8, 8)
+    model = instantiate(cfg.model)
+
+    x = torch.randn(4, cfg.model.in_channels, 8, 8)
     y = model(x)
 
-    assert y.shape == (4, cfg.linear_out_features)
+    assert y.shape == (4, cfg.model.linear_out_features)
 
 
 def test_gecnn_backward_runs() -> None:
