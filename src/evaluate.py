@@ -50,8 +50,6 @@ def main(cfg: DictConfig) -> None:
     data_config = cfg.data
     train_config = cfg.train
     model_config = cfg.model
-    eval_config = cfg.eval
-
     device = torch.device(train_config.device)
 
     dataset_splits = load_dataset(data_config)
@@ -60,24 +58,33 @@ def main(cfg: DictConfig) -> None:
     else:
         _, test_dataset = dataset_splits
 
-    if eval_config.use_augmentation:
-        test_dataset = with_crc_augmentation(test_dataset)
-
-    test_dataloader = DataLoader(
-        test_dataset, batch_size=train_config.batch_size, shuffle=False
-    )
-
-    model_path = _resolve_model_path(eval_config)
+    model_path = _resolve_model_path(cfg)
     model: torch.nn.Module = instantiate(model_config).to(device)
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
 
     loss_fn = _build_loss_fn(train_config.loss_fn, test_dataset, device)
 
-    metrics = evaluate(
+    base_dataloader = DataLoader(
+        test_dataset, batch_size=train_config.batch_size, shuffle=False
+    )
+    base_metrics = evaluate(
         model=model,
         loss_fn=loss_fn,
-        dataloader=test_dataloader,
+        dataloader=base_dataloader,
+        device=device,
+        accuracy_config=getattr(train_config, "accuracy", None),
+    )
+
+    augmented_dataset = with_crc_augmentation(test_dataset)
+
+    augmented_dataloader = DataLoader(
+        augmented_dataset, batch_size=train_config.batch_size, shuffle=False
+    )
+    augmented_metrics = evaluate(
+        model=model,
+        loss_fn=loss_fn,
+        dataloader=augmented_dataloader,
         device=device,
         accuracy_config=getattr(train_config, "accuracy", None),
     )
@@ -85,13 +92,19 @@ def main(cfg: DictConfig) -> None:
     metrics_output_path = _get_metrics_output_path(model_path)
     payload = {
         "model_path": str(model_path),
-        "metrics": metrics,
-        "config": OmegaConf.to_container(cfg, resolve=True),
+        "metrics": {
+            "no_augmentation": base_metrics,
+            "with_augmentation": augmented_metrics,
+        },
     }
     metrics_output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     print(f"Evaluation metrics for {model_path}:")
-    for name, value in metrics.items():
+    print("No augmentation:")
+    for name, value in base_metrics.items():
+        print(f"  {name}: {value:.6f}")
+    print("With augmentation:")
+    for name, value in augmented_metrics.items():
         print(f"  {name}: {value:.6f}")
     print(f"Saved metrics to {metrics_output_path}")
 
