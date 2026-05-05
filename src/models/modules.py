@@ -263,13 +263,7 @@ class GroupConv2d(nn.Module):
         self.register_buffer("_relative_indices", relative_indices, persistent=False)
 
         self.weight = nn.Parameter(
-            torch.empty(
-                out_channels,
-                in_channels,
-                self.group_spec.order,
-                kernel_size,
-                kernel_size,
-            )
+            torch.empty(out_channels, in_channels, kernel_size, kernel_size)
         )
         self.bias = nn.Parameter(torch.zeros(out_channels)) if bias else None
 
@@ -300,29 +294,8 @@ class GroupConv2d(nn.Module):
         out_channels = self.weight.shape[0]
 
         transformed_weight = self._transform_all_weights(self.weight)
-        gather_index = self._relative_indices.view(
-            self.group_order,
-            1,
-            1,
-            self.group_order,
-            1,
-            1,
-        ).expand(
-            self.group_order,
-            out_channels,
-            in_channels,
-            self.group_order,
-            self.weight.shape[-2],
-            self.weight.shape[-1],
-        )
-
-        transformed_weight = torch.gather(
-            transformed_weight,
-            dim=3,
-            index=gather_index,
-        )
-
-        transformed_weight = transformed_weight.permute(0, 1, 3, 2, 4, 5).reshape(
+        transformed_weight = transformed_weight[self._relative_indices]
+        transformed_weight = transformed_weight.permute(0, 2, 1, 3, 4, 5).reshape(
             self.group_order * out_channels,
             self.group_order * in_channels,
             self.weight.shape[-2],
