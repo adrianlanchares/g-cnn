@@ -48,3 +48,14 @@ services:
     ports:
       - "8067:8080"
     command: ["optuna-dashboard", "sqlite:///study.db", "--host", "0.0.0.0", "--port", "8080"]
+
+  bash:
+    build: .
+    image: gcnn:latest
+    container_name: gcnn-bash
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["bash"]
