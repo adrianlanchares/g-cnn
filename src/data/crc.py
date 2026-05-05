@@ -71,7 +71,13 @@ def _build_crc_augmentation_transform() -> transforms.Compose:
         [
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
-            transforms.RandomRotation(90),
+            transforms.RandomChoice(
+                [
+                    transforms.RandomRotation((-90, -90)),
+                    transforms.RandomRotation((0, 0)),
+                    transforms.RandomRotation((90, 90)),
+                ]
+            ),
         ]
     )
 
