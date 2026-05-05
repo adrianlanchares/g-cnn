@@ -1,21 +1,27 @@
-import hydra
-from omegaconf import DictConfig
-from torch.utils.data import DataLoader
+from pathlib import Path
 
-from src.data.load_dataset import load_dataset
+import hydra
+from hydra.utils import instantiate
+from omegaconf import DictConfig, OmegaConf
 
 
 @hydra.main(version_base=None, config_path="../config", config_name="config")
 def main(cfg: DictConfig) -> None:
-    train_dataset, val_dataset, test_dataset = load_dataset(cfg.data)
+    config_root = Path(__file__).resolve().parents[1] / "config"
 
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    base_model_cfg = OmegaConf.load(config_root / "model" / "base_cnn.yaml")
+    ge_model_cfg = OmegaConf.load(config_root / "model" / "gecnn.yaml")
 
-    for inputs, targets in train_loader:
-        print(inputs.shape, targets.shape)
-        print(targets[0:100])
+    base_cfg = OmegaConf.create({"data": cfg.data, "model": base_model_cfg})
+    ge_cfg = OmegaConf.create({"data": cfg.data, "model": ge_model_cfg})
+    OmegaConf.resolve(base_cfg)
+    OmegaConf.resolve(ge_cfg)
 
-        break
+    base_model = instantiate(base_cfg.model)
+    ge_model = instantiate(ge_cfg.model)
+
+    print(f"BaseCNN params: {base_model._get_param_count()}")
+    print(f"GECNN params: {ge_model._get_param_count()}")
 
 
 if __name__ == "__main__":
