@@ -4,7 +4,7 @@ from pathlib import Path
 import hydra
 import torch
 from hydra.utils import instantiate
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset
 
 from src.data.crc import with_crc_augmentation
