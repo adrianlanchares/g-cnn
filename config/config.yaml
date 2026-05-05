@@ -1,6 +1,7 @@
 defaults:
   - data: crc
   - train: default
+  - eval: default
   - model: base_cnn
   - _self_
 
