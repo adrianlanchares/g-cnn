@@ -41,7 +41,7 @@ def _get_metrics_output_path(model_path: Path) -> Path:
     run_dir = model_path.parent.parent
     metrics_dir = run_dir / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
-    return metrics_dir / f"{model_path.stem}.json"
+    return metrics_dir / f"metrics.json"
 
 
 def _compute_macro_prf(
