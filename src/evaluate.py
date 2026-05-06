@@ -45,6 +45,73 @@ def _get_metrics_output_path(model_path: Path) -> Path:
     return metrics_dir / f"{model_path.stem}.json"
 
 
+def _get_consistency_config(accuracy_config: object | None) -> float:
+    if accuracy_config is None:
+        return 0.5
+    if isinstance(accuracy_config, dict):
+        return float(accuracy_config.get("threshold", 0.5))
+    return float(getattr(accuracy_config, "threshold", 0.5))
+
+
+def _build_predictions(
+    model: torch.nn.Module,
+    dataloader: DataLoader,
+    device: torch.device,
+    threshold: float,
+) -> torch.Tensor:
+    model.eval()
+    outputs: list[torch.Tensor] = []
+    with torch.no_grad():
+        for positions, _ in dataloader:
+            positions = positions.to(device)
+            batch_outputs = model(positions).detach().cpu()
+            outputs.append(batch_outputs)
+
+    preds = torch.cat(outputs, dim=0)
+    if preds.ndim == 1:
+        preds = preds.unsqueeze(1)
+    if preds.shape[1] > 1:
+        return preds.argmax(dim=1)
+
+    probs = torch.sigmoid(preds)
+    return (probs > threshold).int().squeeze(1)
+
+
+def _collect_base_images(dataloader: DataLoader, device: torch.device) -> torch.Tensor:
+    images: list[torch.Tensor] = []
+    with torch.no_grad():
+        for positions, _ in dataloader:
+            images.append(positions.to(device).detach())
+    return torch.cat(images, dim=0)
+
+
+def _compute_consistency(
+    base_preds: torch.Tensor,
+    base_images: torch.Tensor,
+    aug_preds: torch.Tensor,
+    aug_images: torch.Tensor,
+) -> float:
+    if base_preds.shape != aug_preds.shape:
+        raise ValueError(
+            "Base and augmented predictions have different shapes: "
+            f"{base_preds.shape} vs {aug_preds.shape}."
+        )
+
+    unchanged_mask = (base_images == aug_images).view(base_images.shape[0], -1).all(
+        dim=1
+    )
+    changed_mask = ~unchanged_mask
+    if not changed_mask.any():
+        return 1.0
+
+    if base_preds.ndim == 1:
+        matches = base_preds[changed_mask] == aug_preds[changed_mask]
+        return matches.float().mean().item()
+
+    matches = (base_preds[changed_mask] == aug_preds[changed_mask]).all(dim=1)
+    return matches.float().mean().item()
+
+
 @hydra.main(version_base=None, config_path="../config", config_name="config")
 def main(cfg: DictConfig) -> None:
     data_config = cfg.data
@@ -76,25 +143,65 @@ def main(cfg: DictConfig) -> None:
         accuracy_config=getattr(train_config, "accuracy", None),
     )
 
-    augmented_dataset = with_crc_augmentation(test_dataset)
+    num_aug_repeats = int(getattr(cfg.eval, "num_aug_repeats", 1))
+    num_aug_repeats = max(num_aug_repeats, 1)
+    accuracy_config = getattr(train_config, "accuracy", None)
+    consistency_threshold = _get_consistency_config(accuracy_config)
 
-    augmented_dataloader = DataLoader(
-        augmented_dataset, batch_size=train_config.batch_size, shuffle=False
-    )
-    augmented_metrics = evaluate(
+    base_images = _collect_base_images(base_dataloader, device)
+    base_preds = _build_predictions(
         model=model,
-        loss_fn=loss_fn,
-        dataloader=augmented_dataloader,
+        dataloader=base_dataloader,
         device=device,
-        accuracy_config=getattr(train_config, "accuracy", None),
+        threshold=consistency_threshold,
     )
+
+    augmented_metrics_runs: list[dict[str, float]] = []
+    consistency_runs: list[float] = []
+
+    for _ in range(num_aug_repeats):
+        augmented_dataset = with_crc_augmentation(test_dataset)
+        augmented_dataloader = DataLoader(
+            augmented_dataset, batch_size=train_config.batch_size, shuffle=False
+        )
+        augmented_metrics_runs.append(
+            evaluate(
+                model=model,
+                loss_fn=loss_fn,
+                dataloader=augmented_dataloader,
+                device=device,
+                accuracy_config=accuracy_config,
+            )
+        )
+
+        aug_images = _collect_base_images(augmented_dataloader, device)
+        aug_preds = _build_predictions(
+            model=model,
+            dataloader=augmented_dataloader,
+            device=device,
+            threshold=consistency_threshold,
+        )
+        consistency_runs.append(
+            _compute_consistency(base_preds, base_images, aug_preds, aug_images)
+        )
+
+    augmented_metrics: dict[str, float] = {}
+    if augmented_metrics_runs:
+        keys = augmented_metrics_runs[0].keys()
+        for key in keys:
+            augmented_metrics[key] = sum(
+                metrics[key] for metrics in augmented_metrics_runs
+            ) / len(augmented_metrics_runs)
+
+    prediction_consistency = sum(consistency_runs) / max(len(consistency_runs), 1)
 
     metrics_output_path = _get_metrics_output_path(model_path)
     payload = {
         "model_path": str(model_path),
         "metrics": {
             "no_augmentation": base_metrics,
-            "with_augmentation": augmented_metrics,
+            "with_augmentation_avg": augmented_metrics,
+            "prediction_consistency": prediction_consistency,
         },
     }
     metrics_output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -103,9 +210,10 @@ def main(cfg: DictConfig) -> None:
     print("No augmentation:")
     for name, value in base_metrics.items():
         print(f"  {name}: {value:.6f}")
-    print("With augmentation:")
+    print("With augmentation (avg):")
     for name, value in augmented_metrics.items():
         print(f"  {name}: {value:.6f}")
+    print(f"Prediction consistency: {prediction_consistency:.6f}")
     print(f"Saved metrics to {metrics_output_path}")
 
 
