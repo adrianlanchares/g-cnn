@@ -73,3 +73,24 @@ class CRCAugmentedDataset(Dataset):
         image, target = self.base_dataset[idx]
         image = self.image_transform(image)
         return image, target
+
+
+class ImageTransformDataset(Dataset):
+    def __init__(self, base_dataset: Dataset, image_transform: Callable[[object], object]) -> None:
+        """
+        Dataset wrapper that applies a deterministic transform to the image only.
+
+        Args:
+            base_dataset: Any dataset that returns (image, target).
+            image_transform: Transform applied to the image.
+        """
+        self.base_dataset = base_dataset
+        self.image_transform = image_transform
+
+    def __len__(self) -> int:
+        return len(self.base_dataset)
+
+    def __getitem__(self, idx: int) -> tuple[object, object]:
+        image, target = self.base_dataset[idx]
+        image = self.image_transform(image)
+        return image, target
