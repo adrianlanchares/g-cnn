@@ -32,8 +32,7 @@ def main() -> None:
     if GlobalHydra.instance().is_initialized():
         GlobalHydra.instance().clear()
 
-    config_root = Path(__file__).resolve().parents[1] / "config"
-    hydra.initialize(version_base=None, config_path=str(config_root))
+    hydra.initialize(version_base=None, config_path="../config")
 
     for mode in modes:
         for use_augmentation in use_augmentations:
