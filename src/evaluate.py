@@ -86,6 +86,7 @@ def _compute_macro_prf(
         "precision_macro": precision.mean().item(),
         "recall_macro": recall.mean().item(),
         "f1_macro": f1.mean().item(),
+        **{f"f1_class_{idx}": value.item() for idx, value in enumerate(f1)},
     }
 
 
