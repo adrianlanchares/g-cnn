@@ -5,6 +5,7 @@ from typing import Callable
 
 import hydra
 from hydra.core.global_hydra import GlobalHydra
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
 from src.training import train_base_cnn, train_gecnn
@@ -56,6 +57,7 @@ def main() -> None:
                     ]
 
                     cfg = hydra.compose(config_name="config", overrides=overrides)
+                    HydraConfig.instance().set_config(cfg)
 
                     print(
                         "Running experiment:",
