@@ -1,17 +1,12 @@
 import json
 from pathlib import Path
 
-import torch.nn.functional as F
-
 import hydra
 import torch
-from torchvision import transforms
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset
 
-from src.data.crc import with_crc_augmentation
-from src.data.dataset import ImageTransformDataset
 from src.data.load_dataset import load_dataset
 from src.training.train_functions import evaluate
 
@@ -49,102 +44,49 @@ def _get_metrics_output_path(model_path: Path) -> Path:
     return metrics_dir / f"{model_path.stem}.json"
 
 
-def _get_consistency_config(accuracy_config: object | None) -> float:
-    if accuracy_config is None:
-        return 0.5
-    if isinstance(accuracy_config, dict):
-        return float(accuracy_config.get("threshold", 0.5))
-    return float(getattr(accuracy_config, "threshold", 0.5))
-
-
-def _build_eval_transforms() -> dict[str, torch.nn.Module]:
-    return {
-        "rot0": torch.nn.Identity(),
-        "rot90": transforms.RandomRotation((90, 90)),
-        "rot180": transforms.RandomRotation((180, 180)),
-        "rot270": transforms.RandomRotation((270, 270)),
-        "flip_h": transforms.RandomHorizontalFlip(p=1.0),
-        "flip_v": transforms.RandomVerticalFlip(p=1.0),
-        "flip_h_rot90": transforms.Compose(
-            [
-                transforms.RandomHorizontalFlip(p=1.0),
-                transforms.RandomRotation((90, 90)),
-            ]
-        ),
-        "flip_v_rot90": transforms.Compose(
-            [
-                transforms.RandomVerticalFlip(p=1.0),
-                transforms.RandomRotation((90, 90)),
-            ]
-        ),
-    }
-
-
-def _build_predictions(
+def _compute_macro_prf(
     model: torch.nn.Module,
     dataloader: DataLoader,
     device: torch.device,
-    threshold: float,
-    loss_fn_name: str,
-) -> torch.Tensor:
+) -> dict[str, float]:
     model.eval()
-    outputs: list[torch.Tensor] = []
+    tp: torch.Tensor | None = None
+    fp: torch.Tensor | None = None
+    fn: torch.Tensor | None = None
+
     with torch.no_grad():
-        for positions, _ in dataloader:
+        for positions, targets in dataloader:
             positions = positions.to(device)
-            batch_outputs = model(positions).detach()
-            outputs.append(batch_outputs)
+            targets = targets.to(device).long().view(-1)
 
-    preds = torch.cat(outputs, dim=0)
-    if preds.ndim == 1:
-        preds = preds.unsqueeze(1)
+            outputs = model(positions)
+            preds = outputs.argmax(dim=1).view(-1)
 
-    if loss_fn_name == "CrossEntropyLoss":
-        return torch.softmax(preds, dim=1)
+            num_classes = outputs.shape[1]
+            if tp is None:
+                tp = torch.zeros(num_classes, device=device)
+                fp = torch.zeros(num_classes, device=device)
+                fn = torch.zeros(num_classes, device=device)
 
-    return torch.sigmoid(preds)
+            for cls in range(num_classes):
+                pred_is_cls = preds == cls
+                target_is_cls = targets == cls
+                tp[cls] += (pred_is_cls & target_is_cls).sum()
+                fp[cls] += (pred_is_cls & ~target_is_cls).sum()
+                fn[cls] += (~pred_is_cls & target_is_cls).sum()
 
+    if tp is None or fp is None or fn is None:
+        return {"precision_macro": 0.0, "recall_macro": 0.0, "f1_macro": 0.0}
 
-def _collect_base_images(dataloader: DataLoader, device: torch.device) -> torch.Tensor:
-    images: list[torch.Tensor] = []
-    with torch.no_grad():
-        for positions, _ in dataloader:
-            images.append(positions.to(device).detach())
-    return torch.cat(images, dim=0)
+    precision = tp / (tp + fp + 1e-8)
+    recall = tp / (tp + fn + 1e-8)
+    f1 = 2 * precision * recall / (precision + recall + 1e-8)
 
-
-def _compute_kl_consistency(
-    base_probs: torch.Tensor,
-    base_images: torch.Tensor,
-    aug_probs: torch.Tensor,
-    aug_images: torch.Tensor,
-) -> float:
-    if base_probs.shape != aug_probs.shape:
-        raise ValueError(
-            "Base and augmented predictions have different shapes: "
-            f"{base_probs.shape} vs {aug_probs.shape}."
-        )
-
-    unchanged_mask = (base_images == aug_images).view(base_images.shape[0], -1).all(
-        dim=1
-    )
-    changed_mask = ~unchanged_mask
-    if not changed_mask.any():
-        return 0.0
-
-    base_sel = base_probs[changed_mask]
-    aug_sel = aug_probs[changed_mask]
-    eps = 1e-8
-    base_sel = base_sel.clamp_min(eps)
-    aug_sel = aug_sel.clamp_min(eps)
-
-    if base_sel.shape[1] == 1:
-        base_sel = torch.cat((base_sel, 1.0 - base_sel), dim=1)
-        aug_sel = torch.cat((aug_sel, 1.0 - aug_sel), dim=1)
-
-    kl = F.kl_div(aug_sel.log(), base_sel, reduction="none")
-    kl = kl.sum(dim=1).mean().item()
-    return kl
+    return {
+        "precision_macro": precision.mean().item(),
+        "recall_macro": recall.mean().item(),
+        "f1_macro": f1.mean().item(),
+    }
 
 
 @hydra.main(version_base=None, config_path="../config", config_name="config")
@@ -167,128 +109,34 @@ def main(cfg: DictConfig) -> None:
 
     loss_fn = _build_loss_fn(train_config.loss_fn, test_dataset, device)
 
-    base_dataloader = DataLoader(
+    dataloader = DataLoader(
         test_dataset, batch_size=train_config.batch_size, shuffle=False
     )
-    base_metrics = evaluate(
+    metrics = evaluate(
         model=model,
         loss_fn=loss_fn,
-        dataloader=base_dataloader,
+        dataloader=dataloader,
         device=device,
         accuracy_config=getattr(train_config, "accuracy", None),
     )
-
-    num_aug_repeats = int(getattr(cfg.eval, "num_aug_repeats", 1))
-    num_aug_repeats = max(num_aug_repeats, 1)
-    accuracy_config = getattr(train_config, "accuracy", None)
-    consistency_threshold = _get_consistency_config(accuracy_config)
-
-    base_images = _collect_base_images(base_dataloader, device)
-    loss_fn_name = str(train_config.loss_fn)
-    base_probs = _build_predictions(
-        model=model,
-        dataloader=base_dataloader,
-        device=device,
-        threshold=consistency_threshold,
-        loss_fn_name=loss_fn_name,
-    )
-
-    augmented_metrics_runs: list[dict[str, float]] = []
-    consistency_runs: list[float] = []
-
-    for _ in range(num_aug_repeats):
-        augmented_dataset = with_crc_augmentation(test_dataset)
-        augmented_dataloader = DataLoader(
-            augmented_dataset, batch_size=train_config.batch_size, shuffle=False
-        )
-        augmented_metrics_runs.append(
-            evaluate(
-                model=model,
-                loss_fn=loss_fn,
-                dataloader=augmented_dataloader,
-                device=device,
-                accuracy_config=accuracy_config,
-            )
-        )
-
-        aug_images = _collect_base_images(augmented_dataloader, device)
-        aug_probs = _build_predictions(
-            model=model,
-            dataloader=augmented_dataloader,
-            device=device,
-            threshold=consistency_threshold,
-            loss_fn_name=loss_fn_name,
-        )
-        consistency_runs.append(
-            _compute_kl_consistency(base_probs, base_images, aug_probs, aug_images)
-        )
-
-    augmented_metrics: dict[str, float] = {}
-    if augmented_metrics_runs:
-        keys = augmented_metrics_runs[0].keys()
-        for key in keys:
-            augmented_metrics[key] = sum(
-                metrics[key] for metrics in augmented_metrics_runs
-            ) / len(augmented_metrics_runs)
-
-    prediction_consistency = sum(consistency_runs) / max(len(consistency_runs), 1)
-
-    transform_metrics: dict[str, dict[str, float]] = {}
-    transform_consistency: dict[str, float] = {}
-    eval_transforms = _build_eval_transforms()
-    for name, transform in eval_transforms.items():
-        transformed_dataset = ImageTransformDataset(test_dataset, transform)
-        transformed_dataloader = DataLoader(
-            transformed_dataset, batch_size=train_config.batch_size, shuffle=False
-        )
-        transform_metrics[name] = evaluate(
-            model=model,
-            loss_fn=loss_fn,
-            dataloader=transformed_dataloader,
-            device=device,
-            accuracy_config=accuracy_config,
-        )
-
-        transformed_images = _collect_base_images(transformed_dataloader, device)
-        transformed_probs = _build_predictions(
-            model=model,
-            dataloader=transformed_dataloader,
-            device=device,
-            threshold=consistency_threshold,
-            loss_fn_name=loss_fn_name,
-        )
-        transform_consistency[name] = _compute_kl_consistency(
-            base_probs, base_images, transformed_probs, transformed_images
-        )
+    base_prf = _compute_macro_prf(model=model, dataloader=dataloader, device=device)
 
     metrics_output_path = _get_metrics_output_path(model_path)
     payload = {
         "model_path": str(model_path),
         "metrics": {
-            "no_augmentation": base_metrics,
-            "with_augmentation_avg": augmented_metrics,
-            "prediction_consistency": prediction_consistency,
-            "by_transform": transform_metrics,
-            "soft_consistency": transform_consistency,
+            "base": metrics,
+            "prf": base_prf,
         },
     }
     metrics_output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     print(f"Evaluation metrics for {model_path}:")
     print("No augmentation:")
-    for name, value in base_metrics.items():
+    for name, value in metrics.items():
         print(f"  {name}: {value:.6f}")
-    print("With augmentation (avg):")
-    for name, value in augmented_metrics.items():
-        print(f"  {name}: {value:.6f}")
-    print(f"Prediction consistency: {prediction_consistency:.6f}")
-    print("Transform metrics:")
-    for name, metrics in transform_metrics.items():
-        print(f"  {name}:")
-        for metric_name, value in metrics.items():
-            print(f"    {metric_name}: {value:.6f}")
-    print("Soft consistency (KL):")
-    for name, value in transform_consistency.items():
+    print("No augmentation (macro PRF):")
+    for name, value in base_prf.items():
         print(f"  {name}: {value:.6f}")
     print(f"Saved metrics to {metrics_output_path}")
 
