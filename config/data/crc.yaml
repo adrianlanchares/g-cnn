@@ -5,7 +5,7 @@ archive_dir: ${.data_dir}/archives
 
 download: false
 
-use_augmentation: true
+use_augmentation: false
 
 resize: true
 image_size: 128
