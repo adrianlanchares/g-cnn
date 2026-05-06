@@ -11,6 +11,18 @@ services:
     working_dir: /app
     command: ["python3", "-m", "src.train"]
 
+  train_experiment:
+    build: .
+    image: gcnn:latest
+    container_name: gcnn-train-experiment
+    stdin_open: true
+    tty: true
+    
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["python3", "-m", "src.train-experiment"]
+
   eval:
     build: .
     image: gcnn:latest

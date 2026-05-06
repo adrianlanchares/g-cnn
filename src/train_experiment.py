@@ -33,6 +33,7 @@ def main(cfg: DictConfig) -> None:
             for data_fraction in data_fractions:
                 for seed in seeds:
                     cfg.mode = mode
+                    cfg.model = mode
                     cfg.seed = seed
                     cfg.data.use_augmentation = use_augmentation
                     cfg.data.data_fraction = data_fraction
