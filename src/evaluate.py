@@ -64,7 +64,7 @@ def _build_predictions(
     with torch.no_grad():
         for positions, _ in dataloader:
             positions = positions.to(device)
-            batch_outputs = model(positions).detach().cpu()
+            batch_outputs = model(positions).detach()
             outputs.append(batch_outputs)
 
     preds = torch.cat(outputs, dim=0)
