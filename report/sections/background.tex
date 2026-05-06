@@ -1,0 +1,148 @@
+\section{Background and Preliminaries}
+\label{sec:background}
+
+Below is provided a self-contained review of the mathematical foundations of group-equivariant
+convolutional networks. Readers familiar with \citet{cohen2016group} may skip to
+Section~\ref{sec:method}.
+
+\subsection{Groups and Group Actions}
+
+A \emph{group} \((G, \cdot)\) is a set \(G\) equipped with a binary operation \(\cdot\) that is
+associative, has an identity element \(e \in G\), and for which every element \(g \in G\)
+has an inverse \(g^{-1} \in G\). Groups formalise the notion of \emph{symmetry}: the elements
+of \(G\) are the symmetry transformations, and the group operation corresponds to their
+composition.
+
+A group \emph{acts} on a set \(X\) if there is a map \(\rho: G \times X \to X\),
+written \((g, x) \mapsto g \cdot x\), that satisfies \(e \cdot x = x\) and
+\(g \cdot (h \cdot x) = (gh) \cdot x\) for all \(g, h \in G\) and \(x \in X\).
+
+\paragraph{The translation group \(\Z^2\).}
+Standard 2-D convolutions are defined over functions \(f: \Z^2 \to \R^K\) and exploit the
+action of the translation group \(\Z^2\) on pixel coordinates. The group operation is
+vector addition \((m, n) + (p, q) = (m+p, n+q)\).
+
+\paragraph{The group \(p4\).}
+The wallpaper group \(p4\) consists of all compositions of integer translations and rotations
+by multiples of \(90^\circ\) about any lattice point. Each element can be parameterised as
+a triple \((r, u, v)\) with rotation index \(r \in \{0, 1, 2, 3\}\) and translation
+\((u, v) \in \Z^2\), corresponding to the transformation matrix
+\begin{equation}
+  g(r, u, v) =
+  \begin{pmatrix}
+    \cos\!\tfrac{r\pi}{2} & -\sin\!\tfrac{r\pi}{2} & u \\
+    \sin\!\tfrac{r\pi}{2} &  \cos\!\tfrac{r\pi}{2} & v \\
+    0                     &  0                     & 1
+  \end{pmatrix}.
+  \label{eq:p4-matrix}
+\end{equation}
+The group operation is matrix multiplication. The group \(p4\) has index 4 over
+\(\Z^2\) (four rotational orientations per translation).
+
+\paragraph{The group \(p4m\).}
+The group \(p4m\) extends \(p4\) by including mirror reflections in addition to rotations,
+yielding an index-8 extension of \(\Z^2\). Each element is parameterised as
+\((m, r, u, v)\) with flip bit \(m \in \{0, 1\}\):
+\begin{equation}
+  g(m, r, u, v) =
+  \begin{pmatrix}
+    (-1)^m \cos\!\tfrac{r\pi}{2} & -(-1)^m \sin\!\tfrac{r\pi}{2} & u \\
+    \sin\!\tfrac{r\pi}{2}        &  \cos\!\tfrac{r\pi}{2}         & v \\
+    0                            &  0                             & 1
+  \end{pmatrix}.
+  \label{eq:p4m-matrix}
+\end{equation}
+A \(p4m\)-equivariant feature map therefore carries 8 channels per ``logical'' feature,
+corresponding to 4 rotations \(\times\) 2 reflection states.
+
+\subsection{Equivariance}
+
+Let \(\Phi: \mathcal{X} \to \mathcal{Y}\) be a learned map between function spaces. We say
+\(\Phi\) is \emph{equivariant} to the group action of \(G\) if there exist representation
+operators \(T_g\) on \(\mathcal{X}\) and \(T'_g\) on \(\mathcal{Y}\) such that
+\begin{equation}
+  \Phi(T_g\, x) = T'_g\, \Phi(x) \quad \forall\, g \in G,\; x \in \mathcal{X}.
+  \label{eq:equivariance}
+\end{equation}
+Intuitively, transforming the input and then passing it through \(\Phi\) gives the same result
+as passing it through \(\Phi\) first and then applying the corresponding output transformation.
+\emph{Invariance} is the special case \(T'_g = \mathrm{Id}\) for all \(g\).
+
+Equivariance is more useful than invariance in intermediate layers because it preserves
+spatial information: the network retains the \emph{pose} of detected features, allowing
+subsequent layers to reason about their relative configuration. Invariance to the full group
+is typically enforced only at the final pooling stage.
+
+\subsection{Standard Convolution}
+
+For an input feature map \(f: \Z^2 \to \R^K\) and a filter \(\psi: \Z^2 \to \R^K\),
+the standard \emph{cross-correlation} (commonly called convolution in the deep-learning
+literature) is
+\begin{equation}
+  [f \star \psi](x) = \sum_{y \in \Z^2} \sum_{k=1}^{K} f_k(y)\,\psi_k(y - x).
+  \label{eq:standard-conv}
+\end{equation}
+This operation is equivariant to translations in \(\Z^2\), because shifting the input
+\(f\) by \(t\) shifts the output by \(t\) as well. However, it is not equivariant to
+rotations: rotating the input generally produces a different output than rotating the output
+of the unrotated input.
+
+\subsection{Group Convolution}
+
+The \gcnn{} framework \citep{cohen2016group} generalises Eq.~\eqref{eq:standard-conv}
+to arbitrary groups \(G\). The central operation is the \emph{\(G\)-convolution} (or
+\emph{group cross-correlation}).
+
+\paragraph{First layer (\(\Z^2 \to G\) convolution).}
+Given a planar input \(f: \Z^2 \to \R^K\) and a filter \(\psi: \Z^2 \to \R^K\), the
+\(\Z^2 \to G\) group convolution lifts the feature map from the plane to the group:
+\begin{equation}
+  [f \star_G \psi](g) = \sum_{y \in \Z^2} \sum_{k=1}^{K} f_k(y)\,\psi_k(g^{-1} y),
+  \qquad g \in G.
+  \label{eq:lift-conv}
+\end{equation}
+For \(G = p4\), this computes four responses per spatial location, one for each of the four
+rotations \(r \in \{0,1,2,3\}\), effectively correlating the input with four rotated copies
+of the same filter.
+
+\paragraph{Subsequent layers (\(G \to G\) convolution).}
+In deeper layers, both the feature map and the filter are defined on \(G\). The
+\(G \to G\) group convolution is
+\begin{equation}
+  [f \star_G \psi](g) = \sum_{h \in G} \sum_{k=1}^{K} f_k(h)\,\psi_k(g^{-1} h),
+  \qquad g \in G.
+  \label{eq:group-conv}
+\end{equation}
+This can be interpreted as a convolution on the group manifold: the filter \(\psi\) is
+shifted across \(G\) by left multiplication.
+
+\paragraph{Equivariance guarantee.}
+One can show \citep{cohen2016group} that the \(G \to G\) group convolution
+(Eq.~\ref{eq:group-conv}) satisfies Eq.~\eqref{eq:equivariance} with
+\(T_g\, f = f(g^{-1} \cdot)\), the regular representation of \(G\). This guarantee holds
+for arbitrary group elements, not just those seen during training, and extends to composed
+architectures of arbitrary depth. Non-linearities, batch normalisation, and pooling
+operations applied element-wise on \(G\)-feature maps are all equivariant, so any
+sequence of such layers preserves the equivariance of the whole network.
+
+\paragraph{Group-invariant output.}
+For a classification task, the final representation must be invariant rather than
+equivariant. This is achieved by a \emph{group pooling} operation that averages (or
+max-pools) over the group dimension:
+\begin{equation}
+  \bar{f}(x) = \frac{1}{|G / \Z^2|} \sum_{r} f(g(r, x)),
+  \label{eq:group-pool}
+\end{equation}
+collapsing the orientation axis and producing a translation-equivariant (but
+rotation-\emph{invariant}) feature map suitable for global average pooling and
+classification.
+
+\paragraph{Parameter efficiency.}
+Because the \(G\)-convolution shares a single filter across all \(|G / \Z^2|\) orientations,
+the number of parameters for a given number of logical output channels grows by
+\(|G / \Z^2|\) relative to a standard convolution. To keep total parameter counts
+comparable, \citet{cohen2016group} recommend dividing the number of filters by
+\(\sqrt{|G / \Z^2|}\) (e.g.\ by 2 for \(p4\), or by \(\sqrt{8}\) for \(p4m\)),
+so that the product of filter count and group size remains roughly constant.
+The additional expressive power then comes from the filter being evaluated at every
+orientation, effectively seeing a larger variety of training patterns per parameter update.

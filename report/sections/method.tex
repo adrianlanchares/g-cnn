@@ -1,0 +1,100 @@
+\section{Method}
+\label{sec:method}
+
+\subsection{Dataset: NCT-CRC-HE-100K}
+
+We use the NCT-CRC-HE-100K dataset \citep{kather2018100}, a large-scale
+benchmark for colorectal cancer tissue classification. The dataset consists of
+100,000 non-overlapping image patches of size \(224 \times 224\) pixels (0.5~\(\mu\)m/px,
+20\(\times\) objective magnification), extracted from 86 H\&E-stained whole-slide images of
+human colorectal cancer and normal tissue. Patches are distributed across nine
+tissue classes:
+\begin{itemize}
+  \item \textbf{ADI} --- adipose tissue,
+  \item \textbf{BACK} --- background (slide area with no tissue),
+  \item \textbf{DEB} --- debris and mucus,
+  \item \textbf{LYM} --- lymphocytes,
+  \item \textbf{MUC} --- mucus,
+  \item \textbf{MUS} --- smooth muscle,
+  \item \textbf{NORM} --- normal colon mucosa,
+  \item \textbf{STR} --- cancer-associated stroma,
+  \item \textbf{TUM} --- colorectal adenocarcinoma epithelium.
+\end{itemize}
+Each class contains approximately 10,000--11,000 patches, making the dataset
+roughly balanced. We use the companion validation set CRC-VAL-HE-7K (7,180 patches
+from 50 independent patients) as our held-out test set, following the standard
+evaluation protocol.
+
+\paragraph{Data configuration.}
+Dataset loading, class names, image resolution, and train/validation splits are
+specified in \texttt{config/data/crc.yaml} using Hydra's structured configuration
+system \citep{yadan2019hydra}. Images are used without per-channel normalisation.
+All patches are resized to \(96 \times 96\) pixels before feeding them to the network,
+to keep memory and compute requirements manageable without discarding the
+tissue-texture information relevant for classification.
+
+\subsection{Models}
+
+Three experimental conditions are compared:
+
+\paragraph{CNN (baseline).}
+A standard convolutional neural network with three convolutional blocks, each consisting
+of a convolution layer (3\(\times\)3 kernel, stride 2, padding 1), batch normalisation, and
+ReLU activation. The hidden channel widths are \(\{64, 128, 256\}\), with 256 output
+channels. A three-layer MLP head with widths \(\{256, 128, 64\}\) followed by a linear
+output layer produces the nine-class logit vector. The network is trained on the
+unaugmented training set.
+
+\paragraph{CNN-Aug (augmented baseline).}
+Identical architecture to CNN, but trained with stochastic rotation and reflection
+augmentation. At each training step, the input patch is randomly rotated by a multiple
+of \(90^\circ\) (uniformly chosen from \(\{0^\circ, 90^\circ, 180^\circ, 270^\circ\}\)) and
+independently flipped horizontally with probability 0.5. This corresponds to sampling
+uniformly from the \(p4m\) orbit, making augmentation the empirical counterpart to
+architectural equivariance.
+
+\paragraph{G-CNN (\(p4m\)-equivariant).}
+The architecture mirrors that of CNN but replaces every standard convolution with a
+\(p4m\)-equivariant group convolution using the formulation of
+\citet{cohen2016group}. The first layer applies a \(\Z^2 \to p4m\) lifting convolution
+(Eq.~\ref{eq:lift-conv}); subsequent layers apply \(p4m \to p4m\) group convolutions
+(Eq.~\ref{eq:group-conv}). Batch normalisation is applied per group feature map (i.e.\
+moments are shared across the 8-element group orbit), consistent with
+\citet{veeling2018rotation}. The final group pooling layer (Eq.~\ref{eq:group-pool})
+collapses the orientation dimension before global average pooling and the linear
+classifier.
+
+To keep the total parameter count approximately equal to the CNN baseline, we follow
+the strategy of \citet{cohen2016group}: because each \(p4m\)-convolution operates over
+an 8-element orbit, the number of filters is divided by \(\sqrt{8}\) relative to the
+baseline. Concretely, the hidden channel widths are set to \(\{24, 48, 96\}\) with 96
+output channels, compared to \(\{64, 128, 256\}\) for the CNN. All group convolution
+operations are implemented from scratch in PyTorch~\citep{paszke2019pytorch}, without
+relying on external equivariant-layer libraries.
+
+\subsection{Training Procedure}
+
+All models are trained with the Adam optimiser and a fixed learning rate schedule.
+Training runs for 5 epochs with batch size 64.
+
+Class-balanced cross-entropy loss is used to mitigate any residual class imbalance.
+Models are selected based on validation accuracy (computed on a 10\% hold-out of the
+training set) and evaluated on the held-out CRC-VAL-HE-7K test set.
+
+\subsection{Data Fraction Study}
+\label{subsec:data-fraction}
+
+The central experiment of this work is a \emph{data-scaling study}. All three model
+conditions are trained at each of the following fractions of the full NCT-CRC-HE-100K
+training set: \(\{1\%, 5\%, 10\%, 25\%, 50\%, 100\%\}\). Subsets are drawn with
+stratified sampling to preserve class balance at every fraction.
+
+This protocol is implemented in \texttt{train\_experiment.py}. Each configuration (model
+type, data fraction, and random seed) constitutes a single experiment run.
+
+\subsection{Evaluation Metrics}
+
+We report: (i) \textbf{top-1 accuracy} on the test set; (ii) \textbf{macro-averaged F1
+score} (unweighted mean of per-class F1), which is more informative than accuracy on a
+near-balanced dataset with meaningful class structure; and (iii) per-class precision,
+recall, and F1, presented in a confusion matrix.

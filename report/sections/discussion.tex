@@ -1,0 +1,4 @@
+\section{Discussion}
+The use of G-CNNs has proved to show significant benefits in the histopathology domain \cite{veeling2018rotation}. By encoding the $p4$ or $p4m$ symmetry, the model requires less training data to achieve the same level of performance as a standard CNN, making it a much more sample-efficient approach.
+
+One limitation of the discrete group approach is that it only accounts for 90-degree rotations. While this captures a significant portion of the symmetry, continuous rotations or smaller increments might further improve performance. Additionally, G-convolutions increase the computational cost per layer due to the additional group dimension, which represents a trade-off against parameter efficiency.

@@ -1,0 +1,21 @@
+\begin{abstract}
+Standard convolutional neural networks (CNNs) exploit translational symmetry but remain
+blind to rotational structure, typically compensating through data augmentation at training
+time. Group-equivariant convolutional neural networks (\gcnn{}s) instead encode rotational and
+reflective symmetry directly into the network architecture, guaranteeing equivariance by
+construction at every layer. Histopathology images are a natural domain for this inductive bias:
+tissue slides are acquired without a canonical orientation, making rotational symmetry an exact
+property of the data distribution rather than an approximation.
+
+This work studies whether the structural symmetry of \gcnn{}s translates into measurable
+benefits for colorectal tissue type classification on the NCT-CRC-HE-100K dataset, a
+nine-class benchmark covering the major tissue compartments found in human colorectal cancer
+slides. Three conditions are compared: (i) a standard CNN baseline, (ii) the same CNN trained
+with rotation and reflection augmentation, and (iii) a \gcnn{} using the \(p4m\) symmetry group.
+Critically, we vary the fraction of available training data to probe \emph{sample efficiency}:
+the hypothesis is that built-in equivariance should confer the largest advantage when labelled
+data is scarce, where augmentation alone cannot substitute for a principled structural prior.
+Our experiments are implemented in PyTorch and managed with Hydra for reproducible
+configuration. We report classification accuracy, macro-averaged F1 score, and per-class
+results across training-set fractions ranging from 5\% to 100\%.
+\end{abstract}

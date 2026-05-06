@@ -220,3 +220,14 @@ logs/
 
 outputs/
 study.db
+
+# latex
+*.fdb_latexmk
+*.fls
+*.out
+*.gz
+*.aux
+*.bbl
+*.blg
+*.sty
+neurips_2025.tex

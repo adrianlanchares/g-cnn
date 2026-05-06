@@ -1,0 +1,75 @@
+\documentclass{article}
+
+% NeurIPS 2025 style
+\usepackage[main, final]{neurips_2025}
+
+% Standard packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{mathtools}
+\usepackage{bm}
+
+% Custom commands
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\gcnn}{G\text{-CNN}}
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
+
+\title{Equivariance vs.\ Augmentation: Comparing Group-Equivariant CNNs and\\
+Standard CNNs for Multi-Class Colorectal Tissue Classification}
+
+\author{%
+  % Fill in your name(s)
+  Adrián López-Lanchares Echezarreta \\
+  Geometric Deep Learning, Academic Year 2025--2026 \\
+  Universidad Pontificia Comillas \\
+  \texttt{adrianlanchares@alu.icai.comillas.edu}
+}
+
+\begin{document}
+
+\maketitle
+
+\input{sections/abstract}
+
+\input{sections/introduction}
+
+\input{sections/related_work}
+
+\input{sections/background}
+
+\input{sections/method}
+
+\input{sections/experiments}
+
+\input{sections/discussion}
+
+\input{sections/conclusion}
+
+
+% -------------------------------------------------------
+%  References
+% -------------------------------------------------------
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+% -------------------------------------------------------
+%  Appendix
+% -------------------------------------------------------
+\appendix
+
+\end{document}

@@ -1,0 +1,53 @@
+\section{Introduction}
+\label{sec:introduction}
+
+The automated analysis of digitised histopathology slides is a high-impact application of
+computer vision. Pathologists must routinely identify and localise the tissue compartments
+present in a biopsy: adipose tissue, mucus, stroma, lymphocytes, tumour epithelium, and
+several others, a task that is time-consuming and subject to inter-observer variability. Deep
+convolutional neural networks have demonstrated expert-level accuracy on such tasks
+\citep{kather2019predicting}, but their data requirements remain a practical barrier: annotating
+histopathology images at patch level requires specialist expertise and is therefore expensive.
+
+A structural feature that distinguishes histopathology images from natural photographs is the
+absence of a canonical orientation. A glass slide can be placed on the microscope stage at any
+angle; the resulting whole-slide image therefore has no preferred ``up'' direction. This is not
+a merely philosophical observation, it has a concrete consequence for learning. When a
+standard CNN is trained on such data, its filters must implicitly learn to respond to the same
+tissue pattern at every orientation, effectively duplicating parameter usage across rotations
+\citep{veeling2018rotation}. Alternatively, the practitioner augments training data with
+random rotations and reflections, forcing the network to encounter each orientation during
+training, but providing no architectural guarantee of equivariance at test time.
+
+Group-equivariant convolutional neural networks (\gcnn{}s), introduced by
+\citet{cohen2016group}, offer a principled alternative. By replacing standard convolutions
+with group convolutions defined over symmetry groups that include rotations and reflections,
+the network is equivariant to those transformations \emph{by construction}. Each filter is
+effectively shared across all orientations in the group, so the representational capacity
+of the network is spent on learning content rather than orientation, leading to improved
+parameter efficiency. In the digital pathology context this inductive bias is especially
+natural: \citet{veeling2018rotation} showed that \gcnn{}s substantially improve tumour
+detection on lymph-node metastases data.
+
+This project investigates the following research question:
+\begin{quote}
+  \emph{Do group-equivariant CNNs provide a sample-efficiency or accuracy advantage over
+  standard CNNs, with and without augmentation, on multi-class colorectal tissue
+  classification, and how does this advantage scale with the quantity of labelled training
+  data?}
+\end{quote}
+
+This question is addressed through a controlled experimental study on the NCT-CRC-HE-100K
+dataset \citep{kather2018100}, comparing three model conditions across multiple training-data
+fractions. The experimental pipeline is implemented in PyTorch~\citep{paszke2019pytorch}
+and configured via Hydra~\citep{yadan2019hydra}, ensuring full reproducibility.
+
+Our main contributions are:
+\begin{itemize}
+  \item A systematic comparison of a \gcnn{} (\(p4m\) group) against a standard CNN and an
+    augmentation-trained CNN on a nine-class histopathology benchmark.
+  \item A data-scaling study covering training-set fractions from 5\% to 100\%, designed to
+    isolate where the equivariant inductive bias is most beneficial.
+  \item An analysis of per-class behaviour, illuminating which tissue types benefit most from
+    rotational equivariance.
+\end{itemize}

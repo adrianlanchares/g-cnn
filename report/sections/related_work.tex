@@ -1,0 +1,44 @@
+\section{Related Work}
+\label{sec:related_work}
+
+\paragraph{Group-equivariant networks.}
+\citet{cohen2016group} introduced G-CNNs as a generalisation of standard CNNs in which
+the translation group \(\Z^2\) is replaced by larger symmetry groups such as \(p4\) (translations
+plus 90\(^\circ\) rotations) and \(p4m\) (translations, 90\(^\circ\) rotations, and reflections). The key
+insight is that equivariance to a transformation group, rather than mere invariance, allows
+the network to propagate structured representations across layers while still exploiting
+weight sharing over the full group orbit. Subsequent work has greatly expanded the scope
+of equivariant architectures: harmonic networks \citep{worrall2017harmonic} achieve full
+360\(^\circ\) equivariance via circular-harmonic filters; steerable CNNs
+\citep{weiler2019general} provide a unified framework for constructing equivariant layers
+for arbitrary subgroups of \(\mathrm{E}(2)\); and E(n)-equivariant graph neural networks
+\citep{satorras2021egnn} extend equivariance to three-dimensional point clouds. The present
+work focuses on the discrete groups \(p4\) and \(p4m\) of \citet{cohen2016group} as the primary
+architectural intervention, chosen for their direct relevance to the 90\(^\circ\) rotational
+symmetry of histopathology patches.
+
+\paragraph{Equivariant networks for digital pathology.}
+\citet{veeling2018rotation} demonstrated that replacing all convolutional layers of a
+DenseNet-like architecture with \(p4m\)-equivariant group convolutions improves
+tumour-detection performance on the PatchCamelyon benchmark derived from Camelyon16
+whole-slide images. Their analysis showed that standard CNNs trained without augmentation
+produce unstable, orientation-dependent predictions, while the \gcnn{} produces smooth,
+rotation-consistent outputs. Our work extends this line of investigation to the
+multi-class tissue-type classification setting and explicitly disentangles the contribution
+of architectural equivariance from that of augmentation-based approximation.
+
+\paragraph{Colorectal tissue classification.}
+\citet{kather2018100} introduced the NCT-CRC-HE-100K dataset together with a supervised
+classification baseline, establishing a nine-class benchmark for computational pathology.
+Subsequent work has explored self-supervised pre-training \citep{ciga2022self}, transformer-based
+architectures, and multi-magnification approaches on this and related datasets. To our
+knowledge, a systematic data-scaling study comparing equivariant and augmented CNNs on
+this specific benchmark has not been reported.
+
+\paragraph{Augmentation vs.\ equivariance.}
+The relationship between data augmentation and architectural equivariance has been
+studied theoretically by \citet{chen2020group}, who showed that training with group
+augmentation converges in expectation to an equivariant solution but may require
+substantially more data than an architecturally equivariant model. \citet{benton2020learning}
+proposed learning the augmentation distribution jointly with the model. Our experimental
+design directly tests this relationship empirically under controlled data constraints.
