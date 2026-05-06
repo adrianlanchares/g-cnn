@@ -125,6 +125,7 @@ Key parameters you may want to override:
 | `train.num_epochs` | `5` | Number of training epochs |
 | `train.batch_size` | `64` | Batch size |
 | `train.lr` | `0.0001` | Learning rate |
+| `model.group` | `p4m` | G-CNN group (Z2, p4, p4m) |
 
 ---
 
