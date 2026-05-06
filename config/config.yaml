@@ -2,11 +2,11 @@ defaults:
   - data: crc
   - train: default
   - eval: default
-  - model: gecnn
+  - model: base_cnn
   - _self_
 
 problem: crc
-mode: gecnn
+mode: base_cnn
 seed: 21
 
 hydra:
