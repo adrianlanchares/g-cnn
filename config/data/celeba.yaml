@@ -1,6 +1,6 @@
 dataset_name: CelebA
 
-data_dir: ${hydra:runtime.cwd}/data
+data_dir: data
 
 download: true
 target_type: attr

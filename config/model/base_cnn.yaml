@@ -11,6 +11,6 @@ padding: [1, 1, 1]
 batchnorm: true
 
 linear_hidden_features: [256, 128, 64]
-linear_out_features: ${data.num_attributes}
+linear_out_features: 9
 
 final_tanh: false

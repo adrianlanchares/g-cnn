@@ -68,13 +68,13 @@ def main() -> None:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path("/outputs/final"),
+        default=Path("outputs/final"),
         help="Path containing experiment run folders.",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("/outputs/final/plots.png"),
+        default=Path("outputs/final/plots.png"),
         help="Output plot image path.",
     )
     args = parser.parse_args()

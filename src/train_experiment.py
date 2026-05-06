@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Callable
 
 import hydra
@@ -24,10 +23,10 @@ def _run_training(cfg: DictConfig) -> None:
 
 
 def main() -> None:
-    seeds = [21, 42, 87]
+    seed = 23
     data_fractions = [0.01, 0.05, 0.1, 0.25, 0.5, 1.0]
     use_augmentations = [False, True]
-    modes = ["base_cnn", "gecnn"]
+    modes = ["gecnn"]
 
     if GlobalHydra.instance().is_initialized():
         GlobalHydra.instance().clear()
@@ -37,34 +36,35 @@ def main() -> None:
     for mode in modes:
         for use_augmentation in use_augmentations:
             for data_fraction in data_fractions:
-                for seed in seeds:
-                    aug_label = "aug" if use_augmentation else "noaug"
-                    fraction_label = f"frac_{data_fraction:.2f}".replace(".", "p")
-                    run_name = f"{mode}_{aug_label}_{fraction_label}_seed_{seed}"
+                aug_label = "aug" if use_augmentation else "noaug"
+                fraction_label = f"frac_{data_fraction:.2f}".replace(".", "p")
+                run_name = f"{mode}_{aug_label}_{fraction_label}_seed_{seed}"
 
-                    overrides = [
-                        f"mode={mode}",
-                        f"seed={seed}",
-                        f"data.use_augmentation={use_augmentation}",
-                        f"data.data_fraction={data_fraction}",
-                        f"data.data_fraction_seed={seed}",
-                        f"data.split_seed={seed}",
-                        "hydra.run.dir=${hydra:runtime.cwd}/outputs/${problem}/"
-                        + run_name,
-                        f"train.checkpoint_path=${{hydra:runtime.output_dir}}/checkpoints_{run_name}",
-                        f"train.tensorboard_log_dir=${{hydra:runtime.output_dir}}/logs_{run_name}",
-                    ]
+                hydra_run_dir = "outputs/final/" + run_name
 
-                    cfg = hydra.compose(config_name="config", overrides=overrides)
+                overrides = [
+                    f"mode={mode}",
+                    f"model={mode}",
+                    f"seed={seed}",
+                    f"data.use_augmentation={use_augmentation}",
+                    f"data.data_fraction={data_fraction}",
+                    f"data.data_fraction_seed={seed}",
+                    f"data.split_seed={seed}",
+                    f"hydra.run.dir={hydra_run_dir}",
+                    f"train.checkpoint_path={hydra_run_dir}/checkpoints",
+                    f"train.tensorboard_log_dir={hydra_run_dir}/logs",
+                ]
 
-                    print(
-                        "Running experiment:",
-                        f"mode={mode}",
-                        f"augmentation={use_augmentation}",
-                        f"data_fraction={data_fraction}",
-                        f"seed={seed}",
-                    )
-                    _run_training(cfg)
+                cfg = hydra.compose(config_name="config", overrides=overrides)
+
+                print(
+                    "Running experiment:",
+                    f"mode={mode}",
+                    f"augmentation={use_augmentation}",
+                    f"data_fraction={data_fraction}",
+                    f"seed={seed}",
+                )
+                _run_training(cfg)
 
 
 if __name__ == "__main__":

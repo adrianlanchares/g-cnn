@@ -12,7 +12,7 @@ accuracy:
   threshold: 0.5
 
 save_checkpoint_every: 1
-checkpoint_path: ${hydra:runtime.output_dir}/checkpoints
-tensorboard_log_dir: ${hydra:runtime.output_dir}/logs
+checkpoint_path: checkpoints
+tensorboard_log_dir: logs
 logs_per_epoch: 100
 train_write_every: 10

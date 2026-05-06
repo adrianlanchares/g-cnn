@@ -1,7 +1,7 @@
 dataset_name: crc
 
-data_dir: ${hydra:runtime.cwd}/data/crc
-archive_dir: ${.data_dir}/archives
+data_dir: data/crc
+archive_dir: data/crc/archives
 
 download: false
 

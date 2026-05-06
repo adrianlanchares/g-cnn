@@ -1,9 +1,9 @@
 dataset_name: Lichess/chess-position-evaluations
 dataset_split: train
 
-data_dir: ${hydra:runtime.cwd}/data/${..problem}
-output_csv: ${.data_dir}/chess_positions.csv
-output_tensor_dataset: ${.data_dir}/chess_positions.pt
+data_dir: data/chess
+output_csv: data/chess/chess_positions.csv
+output_tensor_dataset: data/chess/chess_positions.pt
 
 keep_all_fens: true
 hash_mod: 10000000000

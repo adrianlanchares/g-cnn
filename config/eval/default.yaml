@@ -1,2 +1,1 @@
-model_path: outputs/crc/final/basecnn_no_augment/checkpoints/final_model.pt
-num_aug_repeats: 10
+model_path: outputs/final/base_cnn_aug_frac_0p05_seed_23/checkpoints/final_model.pt
