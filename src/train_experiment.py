@@ -40,7 +40,7 @@ def main() -> None:
                 fraction_label = f"frac_{data_fraction:.2f}".replace(".", "p")
                 run_name = f"{mode}_{aug_label}_{fraction_label}_seed_{seed}"
 
-                hydra_run_dir = "outputs/final/" + run_name
+                hydra_run_dir = "outputs/final-norm/" + run_name
 
                 overrides = [
                     f"mode={mode}",
